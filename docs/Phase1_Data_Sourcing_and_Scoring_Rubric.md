@@ -1,6 +1,6 @@
 # Phase 1 — Data Sourcing and Scoring Rubric
 
-**Status:** Draft v0.1 — structural sections complete, citation tables OPEN
+**Status:** v0.2 — fragrance allergen dataset sourced; other categories OPEN
 **Owner:** Wanjiku Wakiama Kaimuri
 **Last updated:** 2026-09-03
 
@@ -75,9 +75,43 @@ Split by strength of evidence, which is what Section 3.1's category grouping enc
 | Regulation-backed  | EU Regulation (EC) 1223/2009 Annex III; FDA cosmetic guidance | `fragrance_allergen`, `preservative_sensitizer`      |
 | Literature-curated | Named peer-reviewed sources, per entry                        | `common_irritant`, `comedogenic`, `photosensitizing` |
 
-> ⚠ **OPEN — blocking Phase 5.** The Annex III fragrance allergen list is not yet in the
-> repo. EUR-Lex returns HTTP 202 with an empty body to automated requests (bot
-> mitigation), so it must be retrieved manually. See Section 6.
+**Fragrance allergens — sourced.** `curated-risk-data.ts` is transcribed from the full text
+of Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1; CELEX:32023R1545),
+which amends Annex III. Every entry carries its own Annex III reference number, so each
+risk tag cites a specific provision rather than "Annex III" generally.
+
+| Set                        | Count  | Annex III entries                                                             |
+| -------------------------- | ------ | ----------------------------------------------------------------------------- |
+| Substituted by 2023/1545   | 17     | 45, 46, 70, 73, 86, 88, 109, 114, 122, 124, 131, 133, 154, 157, 175, 196, 324 |
+| Added by 2023/1545         | 45     | 327–371                                                                       |
+| **Seeded total**           | **62** |                                                                               |
+| Repealed — must never seed | 10     | 125, 126, 158, 160–163, 165, 167, 168                                         |
+
+The amendment map was cross-checked against the CELLAR metadata notice for the act, whose
+`RESOURCE_LEGAL_AMENDS_RESOURCE_LEGAL` annotations list the same substituted / added /
+deleted entry numbers. Two independent sources agreeing is why these counts are stated
+without hedging. The counts are asserted in `curated-risk-data.test.ts`, so a transcription
+slip fails CI rather than silently degrading the engine.
+
+Disclosure threshold is uniform across all 62: **0,001 % leave-on, 0,01 % rinse-off**
+(Article 19(1)(g)).
+
+> ⚠ **Still open — the pre-existing allergens in entries 67–92.** Recital 5 states the
+> current 24 individually-labelled allergens sit in "entries 45 and 67 to 92". An amending
+> act only reproduces entries it changes, so those 2023/1545 left untouched — including
+> **Linalool, Geraniol, Eugenol, Coumarin, Cinnamal** — are absent from our source text and
+> are deliberately **not** in the dataset. They require the consolidated Annex III
+> (CELEX:02009R1223). Until then the engine cannot flag them: a known false-negative class
+> that must be declared as a limitation in the report.
+
+> ⚠ **Corrigenda not yet reconciled.** `32023R1545R(01)` (2024-08-16) is Slovak-only and
+> harmless here. `32023R1545R(02)` (2025-11-07, OJ L_202590876) states no language
+> restriction and may alter the English text. Check it before the dataset is called final.
+
+**Compliance is still phasing in.** Non-conforming products could be placed on the market
+until **2026-07-31** and made available until **2028-07-31**. A product on sale today may
+lawfully omit these declarations, so _absence of a declared allergen is not evidence of
+absence_. The UI must not imply otherwise.
 
 ---
 
@@ -110,7 +144,9 @@ The citation for _"this substance exists and is called X"_ and for _"X is risky 
 reason Y"_ are usually different sources. A tag must never inherit its parent
 ingredient's citation. This is the rule that makes the risk layer defensible.
 
-Practically: if you cannot name a source for a tag, the tag does not get added.
+Practically: if you cannot name a source for a tag, the tag does not get added. The three
+preservative entries currently carry a placeholder citation and are flagged in Section 6
+precisely because they do not yet meet this bar.
 
 ---
 
@@ -134,6 +170,11 @@ aliases (the `ingredients.aliases` array), and near-miss spellings from OCR. Any
 not confidently matched goes to `unmatched` — it is **never silently dropped**, because
 an unrecognised ingredient is exactly the case a user needs told about.
 
+Aliases matter more than they look. Annex III groups substances under one collective
+labelling name — entry 366 covers ten `Rosa *` names that must all resolve to
+`Rose Flower Oil/Extract`. The dataset stores those in `aliases`, and a test asserts no
+alias collides with another entry's primary name.
+
 ### 4.2 Result tiers and precedence
 
 Four tiers, severity ordered:
@@ -147,13 +188,13 @@ weighted numeric sum because it is explainable: every verdict traces to a specif
 triggering ingredient, which the "explain the risk in plain language" objective requires.
 A weighted sum would produce a number nobody could justify to a user.
 
-| Precedence | Tier                | Trigger                                                                                         |
-| ---------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| 1          | `Avoid`             | Any ingredient matches the user's declared allergy list (`userDeclaredAllergyMatch === true`)   |
-| 2          | `Avoid`             | Any ingredient carries a regulation-backed tag conflicting with the user's declared sensitivity |
-| 3          | `Caution`           | Any ingredient carries a risk tag relevant to the user's skin type, via `skin_type_sensitivity` |
-| 4          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                                |
-| 5          | `Safe`              | All ingredients matched, none triggered a rule                                                  |
+| Precedence | Tier                | Trigger                                                                              |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------ |
+| 1          | `Avoid`             | Any ingredient matches the user's declared allergy list (`userDeclaredAllergyMatch`) |
+| 2          | `Avoid`             | Any ingredient carries a regulation-backed tag conflicting with declared sensitivity |
+| 3          | `Caution`           | Any ingredient carries a risk tag relevant to the user's skin type                   |
+| 4          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                     |
+| 5          | `Safe`              | All ingredients matched, none triggered a rule                                       |
 
 `UnverifiedCaution` exists so an unrecognised ingredient is never reported as `Safe`.
 Absence of evidence is not evidence of safety, and conflating the two would be the most
@@ -166,17 +207,19 @@ the citation. A tier without an explanation is a bug.
 
 To be turned directly into Vitest cases in Phase 5.
 
-| #   | Profile              | Ingredients                   | Expected                         |
-| --- | -------------------- | ----------------------------- | -------------------------------- |
-| 1   | Allergic to Linalool | `Aqua, Glycerin, Linalool`    | `Avoid` — rule 1                 |
-| 2   | Sensitive skin       | `Aqua, Methylisothiazolinone` | `Avoid` — rule 2                 |
-| 3   | Oily skin            | `Aqua, Coconut Oil`           | `Caution` — rule 3, comedogenic  |
-| 4   | Empty profile        | `Aqua, Glycerin`              | `Safe` — rule 5                  |
-| 5   | Empty profile        | `Aqua, Xyzzyne`               | `UnverifiedCaution` — rule 4     |
-| 6   | Allergic to Linalool | `Aqua, Linalool, Xyzzyne`     | `Avoid` — rule 1 outranks rule 4 |
+| #   | Profile              | Ingredients                       | Expected                      |
+| --- | -------------------- | --------------------------------- | ----------------------------- |
+| 1   | Allergic to Limonene | `Aqua, Glycerin, Limonene`        | `Avoid` — rule 1              |
+| 2   | Sensitive skin       | `Aqua, Methylisothiazolinone`     | `Avoid` — rule 2              |
+| 3   | Oily skin            | `Aqua, Coconut Oil`               | `Caution` — rule 3            |
+| 4   | Empty profile        | `Aqua, Glycerin`                  | `Safe` — rule 5               |
+| 5   | Empty profile        | `Aqua, Xyzzyne`                   | `UnverifiedCaution` — rule 4  |
+| 6   | Allergic to Limonene | `Aqua, Limonene, Xyzzyne`         | `Avoid` — rule 1 beats 4      |
+| 7   | Allergic to Rose     | `Aqua, Rosa Damascena Flower Oil` | `Avoid` — via entry 366 alias |
 
 Case 6 is the tie-break that fixes the severity ordering: a declared-allergy hit must not
-be masked by an unknown ingredient.
+be masked by an unknown ingredient. Case 7 proves alias resolution, without which the
+grouped Annex III entries silently under-match.
 
 ---
 
@@ -190,13 +233,15 @@ can reconstruct the decision history.
 
 ## 6. Open items
 
-| #   | Item                                                                        | Blocks           | Owner   |
-| --- | --------------------------------------------------------------------------- | ---------------- | ------- |
-| 1   | Retrieve Annex III fragrance allergen list (EUR-Lex blocks automation)      | Phase 5          | Wanjiku |
-| 2   | Decide CosIng ingestion route now that no bulk export was found             | Phase 4 matching | Wanjiku |
-| 3   | Build the three literature-curated lists with per-entry citations           | Phase 5          | Wanjiku |
-| 4   | Re-verify the Open Beauty Facts row count in Section 2b                     | Report accuracy  | Wanjiku |
-| 5   | Populate `skin_type_sensitivity` — currently no rows, so rule 3 cannot fire | Phase 5          | Wanjiku |
+| #   | Item                                                                         | Blocks            | Owner   |
+| --- | ---------------------------------------------------------------------------- | ----------------- | ------- |
+| 1   | Add entries 67–92 from consolidated Annex III (Linalool, Geraniol, Eugenol…) | Scoring recall    | Wanjiku |
+| 2   | Reconcile corrigendum `32023R1545R(02)` against the transcription            | Citation accuracy | Wanjiku |
+| 3   | Decide CosIng ingestion route now that no bulk export was found              | Phase 4 matching  | Wanjiku |
+| 4   | Replace placeholder citations on the 3 preservative entries                  | Defensibility     | Wanjiku |
+| 5   | Build the three literature-curated lists with per-entry citations            | Phase 5           | Wanjiku |
+| 6   | Re-verify the Open Beauty Facts row count in Section 2b                      | Report accuracy   | Wanjiku |
+| 7   | Populate `skin_type_sensitivity` — currently no rows, so rule 3 cannot fire  | Phase 5           | Wanjiku |
 
-Item 5 is easy to miss: the table exists in the schema but has no seed data, so
+Item 7 is easy to miss: the table exists in the schema but has no seed data, so
 precedence rule 3 is unreachable until it is populated.
