@@ -112,20 +112,24 @@ substituted / added / deleted entry numbers.
 
 ### External validation of the transcription
 
-The 62 entries were matched by CAS number against the EU Glossary of Common Ingredient
-Names (Decision 96/335/EC) — 7,662 rows, 4,970 distinct CAS numbers — using
-`apps/api/src/db/seed/validate-against-glossary.ts`.
+The 62 entries were corroborated by CAS number against two independent EU identity sources
+via `apps/api/src/db/seed/validate-identity.ts`:
 
-| Result                              | Count |
-| ----------------------------------- | ----- |
-| Confirmed by exact CAS match        | 45    |
-| Conflicting match (wrong substance) | 0     |
-| Absent from the 1996 glossary       | 17    |
+| Source                                                | Rows  | Confirmed by CAS |
+| ----------------------------------------------------- | ----- | ---------------- |
+| EU Glossary of Common Ingredient Names (96/335/EC)    | 7,662 | 45 / 62          |
+| NORMAN cosmetics set (2006/257/EC + SCCNFP INCI 2000) | 3,333 | 32 / 62          |
+| **Union**                                             |       | **59 / 62**      |
 
-Zero conflicts. The 17 absences are expected — the glossary is a 1996 snapshot and most of
-those entries entered Annex III in 2023. The glossary is authoritative for identity only;
-its `Restriction` column cites the repealed Directive 76/768/EEC and is demonstrably
-incomplete, so it cannot supply the missing entries 67–92.
+**Zero conflicting matches** — no entry resolved to a different substance, which is the
+error a hand transcription actually produces. Three entries remain uncorroborated and are
+explicable: Pinus Mugo (botanical extract, not a discrete structure) and Acetyl Cedrene /
+Beta-Caryophyllene (added to Annex III in 2023; both sources predate that).
+
+Neither source is authoritative for restriction status. The Glossary `Restriction` column
+is blank on 7,168 of 7,662 rows and cites only 154 Annex III entries; Amyl Cinnamal and
+Benzyl Salicylate appear with no restriction despite being Annex III allergens. It cannot
+supply entries 67–92.
 
 ### Measured recall against a real product corpus
 
@@ -142,92 +146,10 @@ Top uncovered: **linalool 295**, **geraniol 153**, cinnamal 64, benzyl benzoate 
 cinnamal 54, butylphenyl methylpropional 49. All sit in the un-transcribed 67–92 range,
 which is why that task is the top priority for Phase 1 completion.
 
-### Rejected data
+### Data source decisions
 
-`Merged_CosmeticProducts_04052017.csv` (NORMAN mass-spectrometry reference set — SMILES,
-InChI keys, monoisotopic mass, PubChem CIDs) was evaluated and not adopted. It carries no
-labelling, restriction or risk information.
-
-### Known limitations to declare in the report
-
-1. **Entries 67–92 are absent.** An amending act only reproduces what it changes, so
-   Linalool, Geraniol, Eugenol, Coumarin and Cinnamal are not in the source text used.
-   The engine cannot flag them today — a known false-negative class.
-2. **Corrigendum `32023R1545R(02)` (2025-11-07) unreconciled**, language scope unstated.
-3. **Labelling is still phasing in** to 2026-07-31 / 2028-07-31, so a product on sale may
-   lawfully omit these declarations. Absence of a declared allergen ≠ absence.
-
----
-
-## Phase 2 — System design ⬜
-
-ER diagram · Zod schemas in `packages/shared` for every entity · wireframes ·
-three-tier architecture diagram · OpenAPI contract. All committed under `/docs`.
-
-Note: `skin_profiles`, `scan_history`, `recommendations` and `feedback` tables do **not**
-exist yet — only `ingredients`, `ingredient_risk_tags`, `skin_type_sensitivity`,
-`products`, `product_ingredients`.
-
----
-
-## Phase 3 — Auth & skin profile ⬜
-
-Supabase Auth · skin profile CRUD · RLS on `users` and `skin_profiles` · Vitest on
-profile validation.
-
-> ⚠ **Carried-over risk:** `apps/api` connects as the table owner via `DATABASE_URL`,
-> which **bypasses RLS entirely**. Existing policies only protect direct browser→Supabase
-> access. Before the API serves any user data it must verify the Supabase JWT and assume
-> the `authenticated` role per request, or the RLS design is decorative.
-
----
-
-## Phase 4 — Ingredient input ⬜
-
-Manual paste/type with fuzzy matching · OCR via BullMQ → parsed candidates → user
-confirmation · low-confidence fallback pre-fills the manual form.
-
-Reference notebook (PyTesseract / EasyOCR / PaddleOCR) is Python and its extraction
-heuristic terminates the list at the first lowercase character — do **not** port that
-logic; real INCI lists are full of lowercase.
-
----
-
-## Phase 5 — Analysis & scoring engine ⬜
-
-Implement rubric §4.2 · plain-language explanations · heavy unit coverage on edge cases.
-Start from the 7 worked examples in rubric §4.3.
-
----
-
-## Phase 6 — Recommendations, history & feedback ⬜
-
-Results screen with ingredient-level breakdown · history · reaction feedback.
-
----
-
-## Phase 7 — Testing cycle 1 ⬜
-
-Coverage audit on scoring + matcher · Playwright E2E · 4–6 usability participants ·
-security pass proving RLS with a second account. Written report is Chapter 4/5 content.
-
----
-
-## Phase 8 — Refinement ⬜ · Phase 9 — Testing cycle 2 ⬜ · Phase 10 — Ship ⬜
-
-Sep 30 is **ship day, not build day**. If final assembly happens that day, something
-upstream slipped.
-
----
-
-## Risk register
-
-| Risk                                | Status                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| No ready-made allergy dataset       | 🟡 Mitigated — own tagged layer built, 62 entries cited; gaps documented |
-| RLS bypassed by owner-role API      | 🔴 Open — must fix before Phase 3 serves user data                       |
-| OCR accuracy unreliable             | ⬜ Manual fallback mandatory by design; OCR polish capped                |
-| Rubric invented ad-hoc while coding | ✅ Avoided — rubric written and committed before engine work             |
-| Testing bolted on at the end        | 🟡 On track — 9 tests exist; dataset invariants under CI                 |
-| Docs reconstructed from memory late | 🟡 On track — rubric + this plan written as work happened                |
-| Deployment left until late          | 🔴 Open — nothing deployed, nothing pushed, remote CI never run          |
+`Merged_CosmeticProducts_04052017.csv` (NORMAN) was **initially rejected and that call was
+reversed.** It is a mass-spectrometry reference set, so it carries no labelling or
+restriction data and is never used for risk — but its `Source` column shows it derives from
+Decision 2006/257/EC and the SCCNFP INCI 2000 inventory, making it a valid identity source.
+Adopting it lifted CAS corroboration from 45/62 to 59/62.

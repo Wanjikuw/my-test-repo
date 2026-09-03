@@ -135,19 +135,35 @@ absence_. The UI must not imply otherwise.
 Two properties were measured against independent data rather than asserted. Both are
 reproducible and belong in Chapter 4.
 
-**Transcription accuracy** — `apps/api/src/db/seed/validate-against-glossary.ts` matches
-the 62 seeded entries against the EU Glossary by CAS number:
+**Transcription accuracy.** `apps/api/src/db/seed/validate-identity.ts` corroborates the
+62 seeded entries by CAS number against two independent EU identity sources:
 
-| Result                              | Count |
-| ----------------------------------- | ----- |
-| Confirmed by exact CAS match        | 45    |
-| Conflicting match (wrong substance) | 0     |
-| Absent from the 1996 glossary       | 17    |
+| Source                                                         | Rows  | Entries confirmed by CAS |
+| -------------------------------------------------------------- | ----- | ------------------------ |
+| EU Glossary of Common Ingredient Names (Decision 96/335/EC)    | 7,662 | 45 / 62                  |
+| NORMAN cosmetics set (Decision 2006/257/EC + SCCNFP INCI 2000) | 3,333 | 32 / 62                  |
+| **Union of both**                                              |       | **59 / 62**              |
 
-Zero conflicts is the meaningful result: no entry resolved to a different substance than
-intended, which is the error a manual transcription is most likely to introduce. The 17
-absences are expected — the glossary is a 1996 snapshot and most of those entries were
-added to Annex III in 2023.
+| Result                                                    | Count |
+| --------------------------------------------------------- | ----- |
+| Corroborated by exact CAS match                           | 59    |
+| **Conflicting match (resolved to a different substance)** | **0** |
+| Matched on name only (weaker evidence)                    | 0     |
+| Not corroborated by any source                            | 3     |
+
+**Zero conflicts is the finding that matters.** A wrong CAS digit that still resolves to a
+real but different substance is the error a manual transcription actually produces, and it
+would be invisible at runtime. None occurred.
+
+The three uncorroborated entries are explicable rather than suspect:
+
+| Entry | Substance          | Why absent                                                                          |
+| ----- | ------------------ | ----------------------------------------------------------------------------------- |
+| 109   | Pinus Mugo         | Botanical extract; not a discrete structure, so absent from chemical reference sets |
+| 327   | Acetyl Cedrene     | Added to Annex III in 2023; both sources predate it                                 |
+| 332   | Beta-Caryophyllene | Added to Annex III in 2023; both sources predate it                                 |
+
+These three still require an independent check before submission (Section 6, item 8).
 
 **Recall against real labels** — `apps/api/src/db/seed/corpus-coverage.ts` over a corpus
 of 1,472 retail products, 1,299 of which have a usable ingredient list:
@@ -305,7 +321,23 @@ CosIng bulk-export route.
 **Item 1 is now quantified rather than merely open.** Section 2d measures it at 73
 products missed outright in a 1,299-product corpus, driven by linalool and geraniol.
 
-Note on rejected data: `Merged_CosmeticProducts_04052017.csv` was evaluated and **not
-adopted**. It is a NORMAN mass-spectrometry reference set (SMILES, InChI keys,
-monoisotopic mass, PubChem CIDs) intended for analytical chemistry. It carries no
-labelling, restriction or risk information and has no role in this system.
+**Correction — the NORMAN cosmetics set was initially rejected too broadly.** It was first
+dismissed as an analytical-chemistry file with "no role in this system". That was wrong.
+Its `Source` column shows it derives from Decision 2006/257/EC and the SCCNFP INCI 2000
+inventory, making it a legitimate **identity** source. Adopting it raised CAS corroboration
+from 45/62 to 59/62. The original judgement was right only in the narrow sense: it carries
+no labelling or restriction data and is still never used for risk.
+
+**Evidence that the Glossary `Restriction` column is unusable for Annex III status**
+(measured, not asserted):
+
+| Measure                                      | Value          |
+| -------------------------------------------- | -------------- |
+| Rows citing any Annex III entry              | 154 of 7,662   |
+| Rows with a blank `Restriction`              | 7,168 of 7,662 |
+| `Amyl Cinnamal` present but unrestricted     | yes            |
+| `Benzyl Salicylate` present but unrestricted | yes            |
+
+Both are Annex III fragrance allergens, both appear in the glossary, and both carry no
+restriction. Using this column to derive entries 67–92 would therefore have produced
+false negatives silently.
