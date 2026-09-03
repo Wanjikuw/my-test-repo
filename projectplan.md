@@ -98,13 +98,16 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 
 ### Dataset provenance
 
-Source: Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1; CELEX:32023R1545).
+Sources: Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1;
+CELEX:32023R1545) for entries 45/46/70/73/86/88/109/114/122/124/131/133/154/157/175/196/324
+and 327-371; the consolidated Annex III (CELEX:02009R1223) for the 19 pre-existing entries
+in 67-92.
 
 | Set                   | Count  | Annex III entries                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------- |
 | Substituted           | 17     | 45, 46, 70, 73, 86, 88, 109, 114, 122, 124, 131, 133, 154, 157, 175, 196, 324 |
 | Added                 | 45     | 327–371                                                                       |
-| **Seeded**            | **62** |                                                                               |
+| **Seeded**            | **81** |                                                                               |
 | Repealed — never seed | 10     | 125, 126, 158, 160–163, 165, 167, 168                                         |
 
 Cross-checked against the act's CELLAR metadata notice, which independently lists the same
@@ -133,18 +136,20 @@ supply entries 67–92.
 
 ### Measured recall against a real product corpus
 
-`apps/api/src/db/seed/corpus-coverage.ts` over 1,472 retail products (1,299 with a usable
-ingredient list):
+`apps/api/src/db/seed/corpus-coverage.ts` over 1,472 retail products (1,299 usable):
 
-| Measure                                     | Products |
-| ------------------------------------------- | -------- |
-| Match at least one of the 62 seeded entries | 502      |
-| Carry an allergen not yet covered           | 364      |
-| **Missed entirely**                         | **73**   |
+| Measure                        | Before 67-92 | After 67-92 |
+| ------------------------------ | ------------ | ----------- |
+| Match a seeded Annex III entry | 502          | **574**     |
+| **Missed entirely**            | 73           | **1**       |
 
-Top uncovered: **linalool 295**, **geraniol 153**, cinnamal 64, benzyl benzoate 55, hexyl
-cinnamal 54, butylphenyl methylpropional 49. All sit in the un-transcribed 67–92 range,
-which is why that task is the top priority for Phase 1 completion.
+Linalool (295 products) and geraniol (153) were the two largest blind spots and are now
+covered.
+
+Separately, **57 products still name a substance that has been delisted from Annex III** —
+49 butylphenyl methylpropional (entry 83, struck out) and 9 HICC (entry 79, moved to
+Annex II and prohibited). These are reported as a compliance signal rather than counted as
+a recall gap.
 
 ### Data source decisions
 
