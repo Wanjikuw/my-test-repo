@@ -10,16 +10,28 @@
  */
 import { db } from '../client';
 import { ingredients, ingredientRiskTags } from '../schema';
-import { curatedFragranceAllergens, curatedPreservativeSensitizers } from './curated-risk-data';
+import {
+  curatedFragranceAllergens,
+  curatedPreservativeSensitizers,
+  repealedAnnexEntries,
+} from './curated-risk-data';
 
 async function main() {
   const allEntries = [...curatedFragranceAllergens, ...curatedPreservativeSensitizers];
+
+  const revived = allEntries.filter((e) => repealedAnnexEntries.includes(e.annexEntry));
+  if (revived.length > 0) {
+    throw new Error(
+      `Refusing to seed repealed Annex III entries: ${revived.map((e) => `${e.inciName} (${e.annexEntry})`).join(', ')}`,
+    );
+  }
 
   for (const entry of allEntries) {
     const [ingredient] = await db
       .insert(ingredients)
       .values({
         inciName: entry.inciName,
+        aliases: entry.aliases,
         sourceCitation: entry.sourceCitation,
       })
       .onConflictDoNothing({ target: ingredients.inciName })
