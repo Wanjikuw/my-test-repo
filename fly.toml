@@ -1,0 +1,30 @@
+# Run `fly launch` from the REPO ROOT, not from apps/api — the Dockerfile needs the
+# whole monorepo as its build context to resolve the pnpm workspace. If `fly launch`
+# auto-generates this file with a different structure, override with this instead.
+app = "allergy-checker-api"  # change to your actual app name once fly assigns one
+primary_region = "jnb"        # Johannesburg is the closest Fly.io region to Kenya as of
+                               # this writing — verify current available regions with
+                               # `fly platform regions`, this list does change over time
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+
+# Non-secret runtime config. Secrets (DATABASE_URL, REDIS_URL, SENTRY_DSN) go through
+# `fly secrets set`, never here — this file is committed.
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "2s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/health"
