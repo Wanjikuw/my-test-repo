@@ -1,6 +1,6 @@
 # Phase 1 — Data Sourcing and Scoring Rubric
 
-**Status:** v0.2 — fragrance allergen dataset sourced; other categories OPEN
+**Status:** v0.3 — dataset sourced and externally validated; recall gap quantified
 **Owner:** Wanjiku Wakiama Kaimuri
 **Last updated:** 2026-09-03
 
@@ -50,6 +50,23 @@ _restriction status_. The two must not be conflated. This split is why `ingredie
 `ingredient_risk_tags` are separate tables with separate citations.
 
 Source: <https://single-market-economy.ec.europa.eu/sectors/cosmetics/cosmetic-ingredient-database_en>
+
+**Resolved — use the published Glossary rather than scraping CosIng.** The Glossary of
+Common Ingredient Names (Decision 96/335/EC) is distributed as a flat file and carries
+`INCI name`, `CAS No`, `Chem/IUPAC Name`, `Function` and a `Restriction` column —
+**7,662 rows covering 4,970 distinct CAS numbers**. This fills the identity role CosIng
+was intended to serve, with no search-UI scraping.
+
+Two limits, both of which belong in the report:
+
+1. It predates Regulation (EC) No 1223/2009, so its `Restriction` column cites the
+   repealed Directive 76/768/EEC annexes. Authoritative for **identity**, never for
+   current restriction status.
+2. Only **154 of 7,662** rows carry any Annex III reference, and spot-checking shows the
+   column is incomplete — `AMYL CINNAMAL` and `BENZYL SALICYLATE` are blank despite being
+   Annex III allergens. It therefore **cannot** be used to reconstruct entries 67–92.
+
+A newer consolidation exists as Decision (EU) 2019/701; refresh to it before submission.
 
 ### 2b. Product corpus — Open Beauty Facts
 
@@ -112,6 +129,42 @@ Disclosure threshold is uniform across all 62: **0,001 % leave-on, 0,01 % rinse-
 until **2026-07-31** and made available until **2028-07-31**. A product on sale today may
 lawfully omit these declarations, so _absence of a declared allergen is not evidence of
 absence_. The UI must not imply otherwise.
+
+### 2d. External validation and measured recall
+
+Two properties were measured against independent data rather than asserted. Both are
+reproducible and belong in Chapter 4.
+
+**Transcription accuracy** — `apps/api/src/db/seed/validate-against-glossary.ts` matches
+the 62 seeded entries against the EU Glossary by CAS number:
+
+| Result                              | Count |
+| ----------------------------------- | ----- |
+| Confirmed by exact CAS match        | 45    |
+| Conflicting match (wrong substance) | 0     |
+| Absent from the 1996 glossary       | 17    |
+
+Zero conflicts is the meaningful result: no entry resolved to a different substance than
+intended, which is the error a manual transcription is most likely to introduce. The 17
+absences are expected — the glossary is a 1996 snapshot and most of those entries were
+added to Annex III in 2023.
+
+**Recall against real labels** — `apps/api/src/db/seed/corpus-coverage.ts` over a corpus
+of 1,472 retail products, 1,299 of which have a usable ingredient list:
+
+| Measure                                     | Products |
+| ------------------------------------------- | -------- |
+| Match at least one of the 62 seeded entries | 502      |
+| Carry a fragrance allergen not yet covered  | 364      |
+| **Missed entirely by the current dataset**  | **73**   |
+
+The dominant uncovered substances are **linalool (295 products)** and **geraniol (153)**,
+both falling in the un-transcribed 67–92 range. Linalool is the single most common
+fragrance allergen in the corpus and the engine cannot currently flag it.
+
+This is a recall limitation, not a precision one: entries that are present are externally
+corroborated, but coverage is partial. State it in these terms in the evaluation chapter,
+and treat it as the quantified justification for open item 1.
 
 ---
 
@@ -245,3 +298,14 @@ can reconstruct the decision history.
 
 Item 7 is easy to miss: the table exists in the schema but has no seed data, so
 precedence rule 3 is unreachable until it is populated.
+
+**Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
+CosIng bulk-export route.
+
+**Item 1 is now quantified rather than merely open.** Section 2d measures it at 73
+products missed outright in a 1,299-product corpus, driven by linalool and geraniol.
+
+Note on rejected data: `Merged_CosmeticProducts_04052017.csv` was evaluated and **not
+adopted**. It is a NORMAN mass-spectrometry reference set (SMILES, InChI keys,
+monoisotopic mass, PubChem CIDs) intended for analytical chemistry. It carries no
+labelling, restriction or risk information and has no role in this system.
