@@ -110,6 +110,44 @@ Source: Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1; CELEX:3
 Cross-checked against the act's CELLAR metadata notice, which independently lists the same
 substituted / added / deleted entry numbers.
 
+### External validation of the transcription
+
+The 62 entries were matched by CAS number against the EU Glossary of Common Ingredient
+Names (Decision 96/335/EC) — 7,662 rows, 4,970 distinct CAS numbers — using
+`apps/api/src/db/seed/validate-against-glossary.ts`.
+
+| Result                              | Count |
+| ----------------------------------- | ----- |
+| Confirmed by exact CAS match        | 45    |
+| Conflicting match (wrong substance) | 0     |
+| Absent from the 1996 glossary       | 17    |
+
+Zero conflicts. The 17 absences are expected — the glossary is a 1996 snapshot and most of
+those entries entered Annex III in 2023. The glossary is authoritative for identity only;
+its `Restriction` column cites the repealed Directive 76/768/EEC and is demonstrably
+incomplete, so it cannot supply the missing entries 67–92.
+
+### Measured recall against a real product corpus
+
+`apps/api/src/db/seed/corpus-coverage.ts` over 1,472 retail products (1,299 with a usable
+ingredient list):
+
+| Measure                                     | Products |
+| ------------------------------------------- | -------- |
+| Match at least one of the 62 seeded entries | 502      |
+| Carry an allergen not yet covered           | 364      |
+| **Missed entirely**                         | **73**   |
+
+Top uncovered: **linalool 295**, **geraniol 153**, cinnamal 64, benzyl benzoate 55, hexyl
+cinnamal 54, butylphenyl methylpropional 49. All sit in the un-transcribed 67–92 range,
+which is why that task is the top priority for Phase 1 completion.
+
+### Rejected data
+
+`Merged_CosmeticProducts_04052017.csv` (NORMAN mass-spectrometry reference set — SMILES,
+InChI keys, monoisotopic mass, PubChem CIDs) was evaluated and not adopted. It carries no
+labelling, restriction or risk information.
+
 ### Known limitations to declare in the report
 
 1. **Entries 67–92 are absent.** An amending act only reproduces what it changes, so
