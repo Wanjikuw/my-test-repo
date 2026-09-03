@@ -1,6 +1,6 @@
 # Phase 1 — Data Sourcing and Scoring Rubric
 
-**Status:** v0.3 — dataset sourced and externally validated; recall gap quantified
+**Status:** v0.4 — Annex III entries 67-92 sourced; recall gap closed
 **Owner:** Wanjiku Wakiama Kaimuri
 **Last updated:** 2026-09-03
 
@@ -165,22 +165,47 @@ The three uncorroborated entries are explicable rather than suspect:
 
 These three still require an independent check before submission (Section 6, item 8).
 
-**Recall against real labels** — `apps/api/src/db/seed/corpus-coverage.ts` over a corpus
-of 1,472 retail products, 1,299 of which have a usable ingredient list:
+**Recall against real labels** — `apps/api/src/db/seed/corpus-coverage.ts` over 1,472
+retail products, 1,299 with a usable ingredient list:
 
-| Measure                                     | Products |
-| ------------------------------------------- | -------- |
-| Match at least one of the 62 seeded entries | 502      |
-| Carry a fragrance allergen not yet covered  | 364      |
-| **Missed entirely by the current dataset**  | **73**   |
+| Measure                        | Before 67-92 | After 67-92 |
+| ------------------------------ | ------------ | ----------- |
+| Match a seeded Annex III entry | 502          | **574**     |
+| **Missed entirely**            | 73           | **1**       |
 
-The dominant uncovered substances are **linalool (295 products)** and **geraniol (153)**,
-both falling in the un-transcribed 67–92 range. Linalool is the single most common
-fragrance allergen in the corpus and the engine cannot currently flag it.
+Adding the 19 entries in 67-92 closed the gap almost completely. Linalool (295 products)
+and geraniol (153), previously the two largest blind spots, are now covered.
 
-This is a recall limitation, not a precision one: entries that are present are externally
-corroborated, but coverage is partial. State it in these terms in the evaluation chapter,
-and treat it as the quantified justification for open item 1.
+### 2e. Delisted substances are a compliance signal, not a recall gap
+
+Three reference numbers inside 67-92 are struck out in the consolidated Annex III, and two
+of them are struck out because the substance was **prohibited**, not because it became
+safe:
+
+| Entry | Substance                   | Status                                    |
+| ----- | --------------------------- | ----------------------------------------- |
+| 68    | Benzyl alcohol              | Labelling duty moved to entry 45          |
+| 79    | HICC                        | Moved to Annex II entry 1380 — prohibited |
+| 83    | Butylphenyl Methylpropional | Absent from Annex III entirely            |
+
+This is not academic. **57 corpus products still name a delisted substance** — 49 name
+butylphenyl methylpropional and 9 name HICC. Scoring those as ordinary restricted
+allergens would understate them, and omitting them would hide them. The coverage script
+reports them separately.
+
+### 2f. Some substances hold two statuses at once
+
+A CAS number can appear in both annexes because the annexes regulate different
+preparations of the same source material. The regulation cross-references each pair:
+
+| CAS       | Annex III        | Annex II   | Distinction                                       |
+| --------- | ---------------- | ---------- | ------------------------------------------------- |
+| 8007-00-9 | entry 154, 0,4 % | entry 1136 | Extracts restricted; crude Peru balsam prohibited |
+| 8024-12-2 | entry 196, 0,2 % | entry 450  | Absolute restricted; essential oils prohibited    |
+
+`dualStatusSubstances` records these, and the prohibited-set test allows exactly these two
+while still failing on any undocumented overlap. The scoring engine must not collapse the
+two annexes into one status.
 
 ---
 
@@ -318,8 +343,8 @@ precedence rule 3 is unreachable until it is populated.
 **Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
 CosIng bulk-export route.
 
-**Item 1 is now quantified rather than merely open.** Section 2d measures it at 73
-products missed outright in a 1,299-product corpus, driven by linalool and geraniol.
+**Item 1 is closed.** Entries 67-92 are seeded; products missed entirely fell from 73
+to 1. What remains is not a gap but a compliance question — see Section 2e.
 
 **Correction — the NORMAN cosmetics set was initially rejected too broadly.** It was first
 dismissed as an analytical-chemistry file with "no role in this system". That was wrong.
