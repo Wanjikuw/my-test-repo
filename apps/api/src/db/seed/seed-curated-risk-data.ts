@@ -14,12 +14,17 @@ import {
   curatedFragranceAllergens,
   curatedPreservativeSensitizers,
   repealedAnnexEntries,
+  deletedFragranceAllergenEntries,
 } from './curated-risk-data';
 
 async function main() {
   const allEntries = [...curatedFragranceAllergens, ...curatedPreservativeSensitizers];
 
-  const revived = allEntries.filter((e) => repealedAnnexEntries.includes(e.annexEntry));
+  const blocked = [
+    ...repealedAnnexEntries,
+    ...deletedFragranceAllergenEntries.map((d) => d.annexEntry),
+  ];
+  const revived = allEntries.filter((e) => blocked.includes(e.annexEntry));
   if (revived.length > 0) {
     throw new Error(
       `Refusing to seed repealed Annex III entries: ${revived.map((e) => `${e.inciName} (${e.annexEntry})`).join(', ')}`,

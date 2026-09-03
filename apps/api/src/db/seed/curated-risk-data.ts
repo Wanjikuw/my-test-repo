@@ -10,7 +10,10 @@
  *   COVERED   entries 45, 46, 70, 73, 86, 88, 109, 114, 122, 124, 131, 133, 154, 157,
  *             175, 196, 324  (17 substituted by 2023/1545)
  *   COVERED   entries 327-371 (45 added by 2023/1545)
- *   NOT HERE  the pre-existing allergens in entries 67-92 that 2023/1545 did not
+ *   COVERED   entries 67-92 (19 pre-existing allergens, from the consolidated Annex III)
+ *   DELETED   entries 68, 79, 83 carry no substance and must never be seeded
+ *
+ *   (historic note) the pre-existing allergens in entries 67-92 that 2023/1545 did not
  *             substitute — e.g. Linalool, Geraniol, Eugenol, Coumarin, Cinnamal.
  *             Recital 5 confirms they exist ("entries 45 and 67 to 92") but an amending
  *             act only reproduces what it changes, so their wording lives only in the
@@ -55,6 +58,9 @@ export const LABELLING_TRANSITION = {
 
 const SUBSTITUTED = (entry: number) =>
   `Regulation (EC) No 1223/2009, Annex III entry ${entry}, as substituted by Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1)`;
+
+const PRE_EXISTING = (entry: number) =>
+  `Regulation (EC) No 1223/2009, Annex III entry ${entry} (consolidated text, CELEX:02009R1223)`;
 
 const ADDED = (entry: number) =>
   `Regulation (EC) No 1223/2009, Annex III entry ${entry}, as added by Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1)`;
@@ -751,9 +757,255 @@ export const addedFragranceAllergens: CuratedRiskEntry[] = [
   },
 ];
 
+/**
+ * Entries 67-92 as they stand in the consolidated Annex III. These are the long-standing
+ * individually-labelled fragrance allergens; 2023/1545 left them untouched, so an amending
+ * act never reproduced them and they had to be taken from the consolidated text.
+ *
+ * Reference numbers 68, 79 and 83 are deliberately absent — see deletedFragranceAllergenEntries.
+ * Numbers 70, 73, 86 and 88 also fall in this range but were substituted by 2023/1545 and so
+ * live in substitutedFragranceAllergens above.
+ */
+export const preExistingFragranceAllergens: CuratedRiskEntry[] = [
+  {
+    inciName: 'Amyl Cinnamal',
+    aliases: ['2-Benzylideneheptanal'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 67,
+    casNumbers: ['122-40-7'],
+    ecNumbers: ['204-541-5'],
+    sourceCitation: PRE_EXISTING(67),
+  },
+  {
+    inciName: 'Cinnamyl Alcohol',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 69,
+    casNumbers: ['104-54-1'],
+    ecNumbers: ['203-212-3'],
+    sourceCitation: PRE_EXISTING(69),
+  },
+  {
+    inciName: 'Eugenol',
+    aliases: ['Phenol, 2-methoxy-4-(2-propenyl)'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 71,
+    casNumbers: ['97-53-0'],
+    ecNumbers: ['202-589-1'],
+    sourceCitation: PRE_EXISTING(71),
+  },
+  {
+    inciName: 'Hydroxycitronellal',
+    aliases: ['7-Hydroxycitronellal'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 72,
+    casNumbers: ['107-75-5'],
+    ecNumbers: ['203-518-7'],
+    sourceCitation: PRE_EXISTING(72),
+    notes: 'Max 1,0 % outside oral products.',
+  },
+  {
+    inciName: 'Amylcinnamyl Alcohol',
+    aliases: ['2-Pentyl-3-phenylprop-2-en-1-ol'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 74,
+    casNumbers: ['101-85-9'],
+    ecNumbers: ['202-982-8'],
+    sourceCitation: PRE_EXISTING(74),
+  },
+  {
+    inciName: 'Benzyl Salicylate',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 75,
+    casNumbers: ['118-58-1'],
+    ecNumbers: ['204-262-9'],
+    sourceCitation: PRE_EXISTING(75),
+  },
+  {
+    inciName: 'Cinnamal',
+    aliases: ['2-Propenal, 3-phenyl-'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 76,
+    casNumbers: ['104-55-2'],
+    ecNumbers: ['203-213-9'],
+    sourceCitation: PRE_EXISTING(76),
+  },
+  {
+    inciName: 'Coumarin',
+    aliases: ['2H-1-Benzopyran-2-one'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 77,
+    casNumbers: ['91-64-5'],
+    ecNumbers: ['202-086-7'],
+    sourceCitation: PRE_EXISTING(77),
+  },
+  {
+    inciName: 'Geraniol',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 78,
+    casNumbers: ['106-24-1'],
+    ecNumbers: ['203-377-1'],
+    sourceCitation: PRE_EXISTING(78),
+  },
+  {
+    inciName: 'Anise Alcohol',
+    aliases: ['4-Methoxybenzyl alcohol'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 80,
+    casNumbers: ['105-13-5'],
+    ecNumbers: ['203-273-6'],
+    sourceCitation: PRE_EXISTING(80),
+  },
+  {
+    inciName: 'Benzyl Cinnamate',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 81,
+    casNumbers: ['103-41-3'],
+    ecNumbers: ['203-109-3'],
+    sourceCitation: PRE_EXISTING(81),
+  },
+  {
+    inciName: 'Farnesol',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 82,
+    casNumbers: ['4602-84-0'],
+    ecNumbers: ['225-004-1'],
+    sourceCitation: PRE_EXISTING(82),
+  },
+  {
+    inciName: 'Linalool',
+    aliases: ['1,6-Octadien-3-ol, 3,7-dimethyl-'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 84,
+    casNumbers: ['78-70-6'],
+    ecNumbers: ['201-134-4'],
+    sourceCitation: PRE_EXISTING(84),
+    notes: 'Most frequent fragrance allergen in the test corpus (295 of 1 299 products).',
+  },
+  {
+    inciName: 'Benzyl Benzoate',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 85,
+    casNumbers: ['120-51-4'],
+    ecNumbers: ['204-402-9'],
+    sourceCitation: PRE_EXISTING(85),
+  },
+  {
+    inciName: 'Hexyl Cinnamal',
+    aliases: ['2-Benzylideneoctanal'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 87,
+    casNumbers: ['101-86-0'],
+    ecNumbers: ['202-983-3'],
+    sourceCitation: PRE_EXISTING(87),
+  },
+  {
+    inciName: 'Methyl 2-Octynoate',
+    aliases: ['Methyl Oct-2-ynoate', 'Methyl heptine carbonate'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 89,
+    casNumbers: ['111-12-6'],
+    ecNumbers: ['203-836-6'],
+    sourceCitation: PRE_EXISTING(89),
+    notes: 'Max 0,01 % alone; combined with methyl octine carbonate also 0,01 %.',
+  },
+  {
+    inciName: 'Alpha-Isomethyl Ionone',
+    aliases: [],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 90,
+    casNumbers: ['127-51-5'],
+    ecNumbers: ['204-846-3'],
+    sourceCitation: PRE_EXISTING(90),
+  },
+  {
+    inciName: 'Evernia Prunastri Extract',
+    aliases: ['Oak moss extract'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 91,
+    casNumbers: ['90028-68-5'],
+    ecNumbers: ['289-861-3'],
+    sourceCitation: PRE_EXISTING(91),
+    notes: 'Atranol and chloroatranol, its sensitising constituents, are prohibited outright.',
+  },
+  {
+    inciName: 'Evernia Furfuracea Extract',
+    aliases: ['Treemoss extract'],
+    riskCategory: 'fragrance_allergen',
+    annexEntry: 92,
+    casNumbers: ['90028-67-4'],
+    ecNumbers: ['289-860-8'],
+    sourceCitation: PRE_EXISTING(92),
+    notes: 'Atranol and chloroatranol, its sensitising constituents, are prohibited outright.',
+  },
+];
+
+/**
+ * Reference numbers inside 67-92 that the consolidated Annex III shows as struck out.
+ * Seeding any of these as a restricted allergen would be a correctness error: two of them
+ * are no longer restricted but PROHIBITED, which is a stronger status, not a weaker one.
+ */
+export const deletedFragranceAllergenEntries: ReadonlyArray<{
+  annexEntry: number;
+  amendmentMarker: string;
+  reason: string;
+}> = [
+  {
+    annexEntry: 68,
+    amendmentMarker: 'M1',
+    reason: 'Benzyl alcohol; its labelling obligation is now carried by Annex III entry 45.',
+  },
+  {
+    annexEntry: 79,
+    amendmentMarker: 'M23',
+    reason:
+      'HICC (hydroxyisohexyl 3-cyclohexene carboxaldehyde); moved to Annex II entry 1380 and prohibited.',
+  },
+  {
+    annexEntry: 83,
+    amendmentMarker: 'M42',
+    reason:
+      'Butylphenyl Methylpropional (Lilial). It appears nowhere in the current Annex III, so it must not be scored as a restricted allergen. Present in 49 of 1 299 corpus products.',
+  },
+];
+
+/**
+ * Substances whose CAS number appears in BOTH Annex III and Annex II, because the annexes
+ * regulate different preparations of the same source material. The regulation itself
+ * cross-references each pair, so these are not transcription errors and the scoring engine
+ * must not collapse them.
+ */
+export const dualStatusSubstances: ReadonlyArray<{
+  casNumber: string;
+  annexIIIEntry: number;
+  annexIIEntry: number;
+  distinction: string;
+}> = [
+  {
+    casNumber: '8007-00-9',
+    annexIIIEntry: 154,
+    annexIIEntry: 1136,
+    distinction:
+      'Myroxylon pereirae extracts and distillates are restricted to 0,4 %; the crude exudation (Peru balsam) is prohibited.',
+  },
+  {
+    casNumber: '8024-12-2',
+    annexIIIEntry: 196,
+    annexIIEntry: 450,
+    distinction:
+      'Verbena absolute is restricted to 0,2 %; verbena essential oils and other derivatives are prohibited. Annex III footnote 39 makes the cross-reference explicit.',
+  },
+];
+
 export const curatedFragranceAllergens: CuratedRiskEntry[] = [
   ...substitutedFragranceAllergens,
   ...addedFragranceAllergens,
+  ...preExistingFragranceAllergens,
 ];
 
 /** Annex III entries repealed by 2023/1545, so the seeder can assert it never revives one. */
