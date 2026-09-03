@@ -1,9 +1,8 @@
 /**
  * Measures how much of a real product corpus our Annex III dataset actually covers.
  *
- * Exists because "entries 67-92 are missing" is an abstract claim until it is counted
- * against real labels. The number this prints belongs in the report as the stated
- * recall limitation.
+ * Originally sized the entries 67-92 gap; those are now seeded, so it measures residual
+ * recall and flags delisted substances that still appear on real labels.
  *
  * Usage: tsx src/db/seed/corpus-coverage.ts <path-to-cosmetics.csv>
  */
@@ -18,27 +17,15 @@ import { parseCsv } from './lib/csv';
  * dataset, because 2023/1545 left their Annex III entries untouched and an amending act
  * only reproduces what it changes. Used to size the gap, not to score anything.
  */
-const KNOWN_UNCOVERED = [
-  'linalool',
-  'geraniol',
-  'eugenol',
-  'coumarin',
-  'cinnamal',
-  'benzyl salicylate',
-  'benzyl benzoate',
-  'benzyl cinnamate',
-  'hexyl cinnamal',
-  'amyl cinnamal',
-  'amylcinnamyl alcohol',
-  'cinnamyl alcohol',
-  'anise alcohol',
-  'alpha-isomethyl ionone',
+/**
+ * Fragrance allergens that appear on real labels but are deliberately NOT in the dataset
+ * because the consolidated Annex III no longer restricts them — they were struck out and
+ * prohibited instead. A hit here is a compliance signal, not a coverage gap.
+ */
+const DELISTED_STILL_ON_LABELS = [
   'butylphenyl methylpropional',
-  'farnesol',
-  'hydroxycitronellal',
-  'methyl 2-octynoate',
-  'evernia prunastri',
-  'evernia furfuracea',
+  'hydroxyisohexyl 3-cyclohexene carboxaldehyde',
+  'lyral',
 ];
 
 function main() {
@@ -83,7 +70,7 @@ function main() {
         coveredHits.set(term, (coveredHits.get(term) ?? 0) + 1);
       }
     }
-    for (const term of KNOWN_UNCOVERED) {
+    for (const term of DELISTED_STILL_ON_LABELS) {
       if (raw.includes(term)) {
         productsWithUncovered.add(r);
         uncoveredHits.set(term, (uncoveredHits.get(term) ?? 0) + 1);
@@ -101,14 +88,14 @@ function main() {
   console.log(`unusable (marketing/#NAME?/blank): ${junk}`);
   console.log(`labels of type         : ${labelIdx === -1 ? 'n/a' : 'see Label column'}`);
   console.log('');
-  console.log(`products matching our 62 seeded entries : ${productsWithCovered.size}`);
-  console.log(`products carrying a known-uncovered one : ${productsWithUncovered.size}`);
+  console.log(`products matching a seeded Annex III entry: ${productsWithCovered.size}`);
+  console.log(`products naming a DELISTED substance    : ${productsWithUncovered.size}`);
   console.log(`products we would MISS ENTIRELY         : ${onlyUncovered.length}`);
   console.log('');
   console.log('top covered hits:');
   for (const [t, c] of top(coveredHits, 10)) console.log(`  ${c.toString().padStart(4)}  ${t}`);
   console.log('');
-  console.log('top uncovered hits (the recall gap):');
+  console.log('delisted substances still on labels (compliance signal, not a gap):');
   for (const [t, c] of top(uncoveredHits, 10)) console.log(`  ${c.toString().padStart(4)}  ${t}`);
 }
 

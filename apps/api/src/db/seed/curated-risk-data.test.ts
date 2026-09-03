@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   substitutedFragranceAllergens,
   addedFragranceAllergens,
+  preExistingFragranceAllergens,
   curatedFragranceAllergens,
   curatedPreservativeSensitizers,
   repealedAnnexEntries,
+  deletedFragranceAllergenEntries,
 } from './curated-risk-data';
 
 /**
@@ -16,7 +18,31 @@ describe('curated Annex III fragrance allergen dataset', () => {
   it('matches the entry counts stated in Regulation (EU) 2023/1545', () => {
     expect(substitutedFragranceAllergens).toHaveLength(17);
     expect(addedFragranceAllergens).toHaveLength(45);
-    expect(curatedFragranceAllergens).toHaveLength(62);
+    expect(preExistingFragranceAllergens).toHaveLength(19);
+    expect(curatedFragranceAllergens).toHaveLength(81);
+  });
+
+  it('covers entries 67-92 except the three the consolidated text struck out', () => {
+    const inRange = curatedFragranceAllergens
+      .map((e) => e.annexEntry)
+      .filter((n) => n >= 67 && n <= 92)
+      .sort((a, b) => a - b);
+    const expected = Array.from({ length: 26 }, (_, i) => 67 + i).filter(
+      (n) => ![68, 79, 83].includes(n),
+    );
+    expect(inRange).toEqual(expected);
+  });
+
+  it('never seeds an entry the consolidated text deleted', () => {
+    const deleted = deletedFragranceAllergenEntries.map((d) => d.annexEntry);
+    const seeded = curatedFragranceAllergens.map((e) => e.annexEntry);
+    expect(seeded.filter((n) => deleted.includes(n))).toEqual([]);
+  });
+
+  it('explains why each deleted entry is absent', () => {
+    for (const d of deletedFragranceAllergenEntries) {
+      expect(d.reason.trim().length).toBeGreaterThan(20);
+    }
   });
 
   it('substitutes exactly the entries the regulation lists', () => {
@@ -62,7 +88,7 @@ describe('curated Annex III fragrance allergen dataset', () => {
 
   it('cites a specific Annex III entry number for every fragrance allergen', () => {
     const vague = curatedFragranceAllergens.filter(
-      (e) => !e.sourceCitation.includes(`entry ${e.annexEntry},`),
+      (e) => !new RegExp(`entry ${e.annexEntry}\\b`).test(e.sourceCitation),
     );
     expect(vague).toEqual([]);
   });
