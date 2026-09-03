@@ -1,0 +1,36 @@
+{
+  "name": "@allergy-checker/api",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "seed:curated": "tsx src/db/seed/seed-curated-risk-data.ts",
+    "seed:obf": "tsx src/db/seed/import-open-beauty-facts.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/swagger": "^9.0.0",
+    "@fastify/cors": "^10.0.0",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "0.38.0",
+    "postgres": "3.4.4",
+    "zod": "^3.23.0",
+    "pino": "^9.4.0",
+    "bullmq": "^5.13.0",
+    "@allergy-checker/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0"
+  }
+}

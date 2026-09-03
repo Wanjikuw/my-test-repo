@@ -1,0 +1,12 @@
+# Husky runs hooks with `sh -e` and a reduced PATH that omits nvm-managed Node,
+# so pnpm can resolve to a foreign binary. Prepend the .nvmrc-pinned Node to
+# PATH without sourcing nvm.sh, which is bash-only and dies under dash.
+if [ -f .nvmrc ]; then
+  nvm_bin="${NVM_DIR:-$HOME/.nvm}/versions/node/v$(cat .nvmrc)/bin"
+  if [ -d "$nvm_bin" ]; then
+    PATH="$nvm_bin:$PATH"
+    export PATH
+  fi
+fi
+
+pnpm exec lint-staged
