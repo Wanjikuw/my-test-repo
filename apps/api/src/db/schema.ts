@@ -22,12 +22,25 @@ export const riskCategoryEnum = pgEnum('risk_category', [
   'photosensitizing',
 ]);
 
+/**
+ * Regulatory status enum — must stay in sync with RegulatoryStatus in
+ * packages/shared/src/scoring.ts. Kept separate from risk_category on purpose:
+ * Annex III restricts, Annex II forbids, and the two must not be collapsed.
+ */
+export const regulatoryStatusEnum = pgEnum('regulatory_status', [
+  'none',
+  'restricted',
+  'prohibited',
+  'prohibited_as_fragrance',
+]);
+
 export const ingredients = pgTable('ingredients', {
   id: uuid('id').primaryKey().defaultRandom(),
   inciName: text('inci_name').notNull().unique(),
   aliases: text('aliases').array().notNull().default([]),
   fn: text('function'),
   cosingId: varchar('cosing_id', { length: 64 }),
+  regulatoryStatus: regulatoryStatusEnum('regulatory_status').notNull().default('none'),
   sourceCitation: text('source_citation').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

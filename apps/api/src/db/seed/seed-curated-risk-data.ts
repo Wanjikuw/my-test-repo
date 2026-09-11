@@ -37,6 +37,9 @@ async function main() {
       .values({
         inciName: entry.inciName,
         aliases: entry.aliases,
+        // Annex III entries are restricted. The preservatives carry annexEntry 0 because no
+        // numbered provision applies to them, so they get no regulatory status.
+        regulatoryStatus: entry.annexEntry > 0 ? 'restricted' : 'none',
         sourceCitation: entry.sourceCitation,
       })
       .onConflictDoNothing({ target: ingredients.inciName })
