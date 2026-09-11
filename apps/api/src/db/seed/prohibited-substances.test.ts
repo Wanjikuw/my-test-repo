@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { RegulatoryStatus } from '@allergy-checker/shared';
 import {
   bannedFormerAllergens,
   prohibitedFragranceIngredients,
   prohibitedSubstances,
+  regulatoryStatusFor,
 } from './prohibited-substances';
 import { curatedFragranceAllergens, dualStatusSubstances } from './curated-risk-data';
 
@@ -55,6 +57,21 @@ describe('prohibited substances', () => {
       for (const cas of s.casNumbers) {
         expect(cas).toMatch(/^\d{2,7}-\d{2}-\d$/);
       }
+    }
+  });
+
+  it('never scores a fragrance-role ban as an outright ban', () => {
+    expect(bannedFormerAllergens.map(regulatoryStatusFor)).toEqual(
+      bannedFormerAllergens.map(() => 'prohibited'),
+    );
+    expect(prohibitedFragranceIngredients.map(regulatoryStatusFor)).toEqual(
+      prohibitedFragranceIngredients.map(() => 'prohibited_as_fragrance'),
+    );
+  });
+
+  it('emits only statuses the shared contract accepts', () => {
+    for (const s of prohibitedSubstances) {
+      expect(RegulatoryStatus.parse(regulatoryStatusFor(s))).toBe(regulatoryStatusFor(s));
     }
   });
 });

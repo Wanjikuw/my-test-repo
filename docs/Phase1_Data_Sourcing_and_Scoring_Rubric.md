@@ -193,6 +193,11 @@ butylphenyl methylpropional and 9 name HICC. Scoring those as ordinary restricte
 allergens would understate them, and omitting them would hide them. The coverage script
 reports them separately.
 
+HICC is now seeded with `regulatoryStatus = prohibited` (Section 3.3), so the 9 products
+naming it resolve through precedence rule 1. **Butylphenyl methylpropional is not yet in
+the prohibited set**, so the other 49 — the larger share — are still unexpressed. That is
+open item 8.
+
 ### 2f. Some substances hold two statuses at once
 
 A CAS number can appear in both annexes because the annexes regulate different
@@ -216,6 +221,8 @@ two annexes into one status.
 Five categories, fixed. Defined once in `packages/shared/src/scoring.ts` as
 `RiskCategory` and mirrored in the `risk_category` Postgres enum in
 `apps/api/src/db/schema.ts`. **Adding a category means editing both.**
+
+Prohibition is deliberately **not** one of them — see Section 3.3.
 
 | Category                  | Meaning                                                  |
 | ------------------------- | -------------------------------------------------------- |
@@ -242,6 +249,44 @@ Practically: if you cannot name a source for a tag, the tag does not get added. 
 preservative entries currently carry a placeholder citation and are flagged in Section 6
 precisely because they do not yet meet this bar.
 
+### 3.3 Regulatory status is not a risk category
+
+Annex II status was considered as a sixth `RiskCategory` and rejected. The two answer
+different questions:
+
+|                   | Question it answers                           | Depends on the user? |
+| ----------------- | --------------------------------------------- | -------------------- |
+| `RiskCategory`    | Why is this substance risky **to me**?        | Yes                  |
+| Regulatory status | May this product lawfully be sold **at all**? | No                   |
+
+Collapsing them would have forced a meaningless `prohibited` row into
+`skin_type_sensitivity` and let precedence rule 5 fire "prohibited is relevant to your
+skin type", which is nonsense. It would also have violated Section 2f directly.
+
+So `RegulatoryStatus` is a separate enum in `packages/shared/src/scoring.ts`, mirrored in
+the `regulatory_status` Postgres enum and carried as a column on `ingredients` (not on
+`ingredient_risk_tags` — status is a property of the substance, not of a reason it is
+risky). **Adding a value means editing both.**
+
+| Status                    | Meaning                                                                 |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `none`                    | No numbered provision applies                                           |
+| `restricted`              | Annex III — permitted subject to conditions                             |
+| `prohibited`              | Annex II — banned outright; presence means the product is non-compliant |
+| `prohibited_as_fragrance` | Annex II — banned only in the fragrance role                            |
+
+`prohibited_as_fragrance` is the one that needs care. Entries 423–450 ban a substance
+_"when used as a fragrance ingredient"_, and an ingredient list cannot establish the role
+a substance was used in. Scoring those as outright bans would accuse compliant products of
+being illegal, so they get their own status and their own, weaker rule.
+`regulatoryStatusFor()` in `prohibited-substances.ts` is the single place that mapping
+lives, and a test asserts a fragrance-role ban never resolves to `prohibited`.
+
+The Annex II set is seeded separately by `seed-prohibited-substances.ts` and carries **no
+risk tags at all**. If the seeder hits an existing ingredient with the same name it warns
+and skips rather than overwriting — a name collision would mean relabelling an Annex III
+entry as banned.
+
 ---
 
 ## 4. Matching and scoring
@@ -255,7 +300,7 @@ scoring is the highest-stakes logic in the project.
 Input: raw ingredient strings (typed, pasted, or OCR-extracted).
 Output: `MatchResult` — `matches[]` plus `unmatched[]`.
 
-Each `IngredientMatch` carries `riskCategories`, `sourceCitation`, and
+Each `IngredientMatch` carries `riskCategories`, `regulatoryStatus`, `sourceCitation`, and
 `userDeclaredAllergyMatch`, the last being an exact hit against the user's own declared
 allergy list.
 
@@ -284,11 +329,19 @@ A weighted sum would produce a number nobody could justify to a user.
 
 | Precedence | Tier                | Trigger                                                                              |
 | ---------- | ------------------- | ------------------------------------------------------------------------------------ |
-| 1          | `Avoid`             | Any ingredient matches the user's declared allergy list (`userDeclaredAllergyMatch`) |
-| 2          | `Avoid`             | Any ingredient carries a regulation-backed tag conflicting with declared sensitivity |
-| 3          | `Caution`           | Any ingredient carries a risk tag relevant to the user's skin type                   |
-| 4          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                     |
-| 5          | `Safe`              | All ingredients matched, none triggered a rule                                       |
+| 1          | `Avoid`             | Any ingredient is `prohibited` under Annex II — the product is non-compliant         |
+| 2          | `Avoid`             | Any ingredient matches the user's declared allergy list (`userDeclaredAllergyMatch`) |
+| 3          | `Avoid`             | Any ingredient carries a regulation-backed tag conflicting with declared sensitivity |
+| 4          | `Caution`           | Any ingredient is `prohibited_as_fragrance` and the label cannot establish the role  |
+| 5          | `Caution`           | Any ingredient carries a risk tag relevant to the user's skin type                   |
+| 6          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                     |
+| 7          | `Safe`              | All ingredients matched, none triggered a rule                                       |
+
+Rule 1 is the only rule that fires with **no user profile at all** — an Annex II ban is a
+fact about the product, not about the person reading the label. Rule 4 is its deliberately
+weaker sibling: the ban is real but conditional on a role the label does not state, so it
+warns without asserting non-compliance. Both must name the Annex II entry in their
+explanation, or the verdict is unusable.
 
 `UnverifiedCaution` exists so an unrecognised ingredient is never reported as `Safe`.
 Absence of evidence is not evidence of safety, and conflating the two would be the most
@@ -301,19 +354,26 @@ the citation. A tier without an explanation is a bug.
 
 To be turned directly into Vitest cases in Phase 5.
 
-| #   | Profile              | Ingredients                       | Expected                      |
-| --- | -------------------- | --------------------------------- | ----------------------------- |
-| 1   | Allergic to Limonene | `Aqua, Glycerin, Limonene`        | `Avoid` — rule 1              |
-| 2   | Sensitive skin       | `Aqua, Methylisothiazolinone`     | `Avoid` — rule 2              |
-| 3   | Oily skin            | `Aqua, Coconut Oil`               | `Caution` — rule 3            |
-| 4   | Empty profile        | `Aqua, Glycerin`                  | `Safe` — rule 5               |
-| 5   | Empty profile        | `Aqua, Xyzzyne`                   | `UnverifiedCaution` — rule 4  |
-| 6   | Allergic to Limonene | `Aqua, Limonene, Xyzzyne`         | `Avoid` — rule 1 beats 4      |
-| 7   | Allergic to Rose     | `Aqua, Rosa Damascena Flower Oil` | `Avoid` — via entry 366 alias |
+| #   | Profile              | Ingredients                       | Expected                       |
+| --- | -------------------- | --------------------------------- | ------------------------------ |
+| 1   | Allergic to Limonene | `Aqua, Glycerin, Limonene`        | `Avoid` — rule 2               |
+| 2   | Sensitive skin       | `Aqua, Methylisothiazolinone`     | `Avoid` — rule 3               |
+| 3   | Oily skin            | `Aqua, Coconut Oil`               | `Caution` — rule 5             |
+| 4   | Empty profile        | `Aqua, Glycerin`                  | `Safe` — rule 7                |
+| 5   | Empty profile        | `Aqua, Xyzzyne`                   | `UnverifiedCaution` — rule 6   |
+| 6   | Allergic to Limonene | `Aqua, Limonene, Xyzzyne`         | `Avoid` — rule 2 beats 6       |
+| 7   | Allergic to Rose     | `Aqua, Rosa Damascena Flower Oil` | `Avoid` — via entry 366 alias  |
+| 8   | Empty profile        | `Aqua, Lyral`                     | `Avoid` — rule 1               |
+| 9   | Empty profile        | `Aqua, Ficus Carica Leaf Extract` | `Caution` — rule 4, not rule 1 |
 
 Case 6 is the tie-break that fixes the severity ordering: a declared-allergy hit must not
 be masked by an unknown ingredient. Case 7 proves alias resolution, without which the
 grouped Annex III entries silently under-match.
+
+Cases 8 and 9 fix the Annex II split. Case 8 must return `Avoid` on an empty profile — a
+ban does not need a user to be true. Case 9 must **not** escalate to `Avoid`: fig leaf
+absolute is prohibited as a fragrance ingredient, the label does not say it was used as
+one, and accusing a compliant product of illegality is its own kind of false positive.
 
 ---
 
@@ -335,10 +395,17 @@ can reconstruct the decision history.
 | 4   | Replace placeholder citations on the 3 preservative entries                  | Defensibility     | Wanjiku |
 | 5   | Build the three literature-curated lists with per-entry citations            | Phase 5           | Wanjiku |
 | 6   | Re-verify the Open Beauty Facts row count in Section 2b                      | Report accuracy   | Wanjiku |
-| 7   | Populate `skin_type_sensitivity` — currently no rows, so rule 3 cannot fire  | Phase 5           | Wanjiku |
+| 7   | Populate `skin_type_sensitivity` — currently no rows, so rule 5 cannot fire  | Phase 5           | Wanjiku |
+| 8   | Add Butylphenyl Methylpropional to the Annex II set from the amending act    | Compliance recall | Wanjiku |
 
 Item 7 is easy to miss: the table exists in the schema but has no seed data, so
-precedence rule 3 is unreachable until it is populated.
+precedence rule 5 is unreachable until it is populated.
+
+Item 8 is the largest remaining compliance gap: the substance accounts for 49 of the 57
+delisted-substance hits in the corpus, more than five times HICC's share. It is left open
+rather than guessed because the Annex II entry number and amending regulation must come
+from the published text — the same rule that kept entries 67–92 out of the dataset until a
+real source was available.
 
 **Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
 CosIng bulk-export route.

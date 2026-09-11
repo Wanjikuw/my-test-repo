@@ -89,21 +89,23 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 
 **Deliverable:** versioned, seeded `ingredients` dataset + written scoring rubric.
 
-| Task                                                          | Status                                    |
-| ------------------------------------------------------------- | ----------------------------------------- |
-| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`               |
-| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                        |
-| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                            |
-| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (7 cases)                  |
-| EU Annex III fragrance allergens transcribed                  | ✅ **62 entries**, cited per entry        |
-| Dataset invariants under test                                 | ✅ 8 tests in `curated-risk-data.test.ts` |
-| Seeder refuses to revive repealed Annex III entries           | ✅                                        |
-| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | 🔴 **missing** — see below                |
-| Preservative sensitizers with defensible citations            | 🔴 placeholder citations only             |
-| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                            |
-| `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 3 unreachable**         |
-| CosIng ingestion route                                        | ⬜ no bulk export found                   |
-| Open Beauty Facts import re-verified                          | ⬜ 1,552/64,237 figure unverified         |
+| Task                                                          | Status                                   |
+| ------------------------------------------------------------- | ---------------------------------------- |
+| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`              |
+| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                       |
+| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                           |
+| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (9 cases)                 |
+| EU Annex III fragrance allergens transcribed                  | ✅ **81 entries**, cited per entry       |
+| Annex II prohibition modelled as `regulatory_status`          | ✅ rubric §3.3 — not a 6th risk category |
+| Dataset invariants under test                                 | ✅ 29 tests, all passing                 |
+| Seeder refuses to revive repealed Annex III entries           | ✅                                       |
+| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out        |
+| Butylphenyl Methylpropional in the Annex II set               | 🔴 49 of 57 delisted hits — rubric §6 #8 |
+| Preservative sensitizers with defensible citations            | 🔴 placeholder citations only            |
+| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                           |
+| `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 5 unreachable**        |
+| CosIng ingestion route                                        | ⬜ no bulk export found                  |
+| Open Beauty Facts import re-verified                          | ⬜ 1,552/64,237 figure unverified        |
 
 ### Dataset provenance
 

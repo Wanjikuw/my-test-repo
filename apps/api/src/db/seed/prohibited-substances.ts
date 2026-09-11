@@ -370,3 +370,14 @@ export const prohibitedSubstances: ProhibitedSubstance[] = [
   ...bannedFormerAllergens,
   ...prohibitedFragranceIngredients,
 ];
+
+/**
+ * An outright Annex II ban is unconditional. A fragrance-role ban is not, because an
+ * ingredient list cannot establish the role the substance was used in, so it must never
+ * be scored as if the product were non-compliant.
+ */
+export function regulatoryStatusFor(
+  substance: ProhibitedSubstance,
+): 'prohibited' | 'prohibited_as_fragrance' {
+  return substance.prohibitedOnlyAsFragrance ? 'prohibited_as_fragrance' : 'prohibited';
+}

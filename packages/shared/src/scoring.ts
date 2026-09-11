@@ -16,6 +16,24 @@ export const RiskCategory = z.enum([
 export type RiskCategory = z.infer<typeof RiskCategory>;
 
 /**
+ * Regulatory status under Regulation (EC) No 1223/2009 (rubric Section 3.3).
+ * Deliberately NOT a RiskCategory: a risk category says why a substance is risky to a
+ * person and feeds the skin-profile rules, whereas this says whether the product may
+ * lawfully be sold at all, which is independent of who is using it. Annex III restricts,
+ * Annex II forbids, and rubric Section 2f requires the engine to keep the two apart.
+ *
+ * `prohibited_as_fragrance` is conditional: the ban applies only to the fragrance role,
+ * which an ingredient list cannot establish. It must never be scored as an outright ban.
+ */
+export const RegulatoryStatus = z.enum([
+  'none',
+  'restricted',
+  'prohibited',
+  'prohibited_as_fragrance',
+]);
+export type RegulatoryStatus = z.infer<typeof RegulatoryStatus>;
+
+/**
  * Result tiers per the rubric doc, Section 4.2.
  * Severity ordering (most to least severe) is Avoid > Caution > UnverifiedCaution > Safe.
  * This ordering is enforced in the scoring engine's tie-breaking logic, not here —
@@ -28,6 +46,7 @@ export const IngredientMatch = z.object({
   ingredientId: z.string(),
   inciName: z.string(),
   riskCategories: z.array(RiskCategory),
+  regulatoryStatus: RegulatoryStatus,
   sourceCitation: z.string(),
   userDeclaredAllergyMatch: z.boolean(),
 });
