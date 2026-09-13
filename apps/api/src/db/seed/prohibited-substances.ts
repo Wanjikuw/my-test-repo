@@ -10,9 +10,9 @@
  * and radioactive substances; only the fragrance-relevant entries are transcribed here,
  * because those are the ones that can plausibly appear on a cosmetic ingredient list.
  *
- * Three of these were previously treated as declarable Annex III allergens and were later
- * banned outright (entries 1380-1382). That is why this file exists: scoring them as
- * "restricted" would understate them.
+ * Four of these were previously treated as declarable Annex III allergens and were later
+ * banned outright (entries 1380-1382 and 1666). That is why this file exists: scoring them
+ * as "restricted" would understate them.
  */
 
 export interface ProhibitedSubstance {
@@ -37,8 +37,9 @@ const ANNEX_II = (entry: number, amendment?: string) =>
   (amendment ? ` (as amended, ${amendment})` : ' (consolidated text)');
 
 /**
- * Banned outright. All three were formerly individually-labelled fragrance allergens,
- * removed from Annex III and prohibited by Commission Regulation (EU) 2017/1410.
+ * Banned outright. All were formerly individually-labelled Annex III fragrance allergens,
+ * since removed from Annex III and prohibited. Entries 1380-1382 were moved by Commission
+ * Regulation (EU) 2017/1410; entry 1666 was moved separately as a CMR substance.
  */
 export const bannedFormerAllergens: ProhibitedSubstance[] = [
   {
@@ -70,6 +71,19 @@ export const bannedFormerAllergens: ProhibitedSubstance[] = [
     prohibitedOnlyAsFragrance: false,
     sourceCitation: ANNEX_II(1382, 'Regulation (EU) 2017/1410'),
     notes: 'Oak moss / tree moss constituent.',
+  },
+  {
+    // Annex II lists this under its chemical name only, which is why an INCI-name search misses it.
+    name: '2-(4-tert-butylbenzyl) propionaldehyde',
+    aliases: ['Butylphenyl Methylpropional', 'BMHCA', 'Lilial', 'Lily aldehyde'],
+    annexIIEntry: 1666,
+    casNumbers: ['80-54-6'],
+    ecNumbers: ['201-289-8'],
+    prohibitedOnlyAsFragrance: false,
+    sourceCitation: ANNEX_II(1666),
+    notes:
+      'Formerly Annex III entry 83, a declarable fragrance allergen. Prohibited as a CMR ' +
+      'substance, so the ban is not scoped to fragrance use.',
   },
 ];
 
