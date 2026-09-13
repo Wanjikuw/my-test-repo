@@ -20,3 +20,11 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .idea/
+
+# Local reference copies of the regulation text and SCCS opinions. Large, redistributable
+# only under EUR-Lex terms, and not inputs to the build — the citable facts live in the
+# seed files. ADS suffixes are Windows metadata materialised by the WSL drag-and-drop.
+*.pdf
+*.pdf:*
+annex2.MD
+annex3.MD
