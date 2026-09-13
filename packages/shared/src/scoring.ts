@@ -124,6 +124,18 @@ type Explanation = ScoredResult['explanations'][number];
 const NO_TRIGGER_SUBJECT = 'All ingredients';
 
 /**
+ * Plain-language rendering of each category. Explanations are shown to users, and
+ * Section 4.2 requires a plain-language reason, so the raw enum name never appears.
+ */
+const CATEGORY_LABEL: Record<RiskCategory, string> = {
+  fragrance_allergen: 'a declarable fragrance allergen',
+  preservative_sensitizer: 'a preservative known to cause contact sensitisation',
+  common_irritant: 'a documented irritant',
+  comedogenic: 'known to block pores',
+  photosensitizing: 'able to increase sensitivity to sunlight',
+};
+
+/**
  * Evaluates the precedence tree in rubric Section 4.2. The highest-precedence rule that
  * fires sets the tier, but every rule that fires contributes an explanation, so a verdict
  * always names what drove it.
@@ -160,14 +172,16 @@ export function score(result: MatchResult): ScoredResult {
   }
 
   // Rule 3 — sensitive skin escalates a regulation-backed tag from Caution to Avoid.
+  const escalated = new Set<string>();
   if (result.skinType === 'sensitive') {
     for (const m of result.matches) {
       const backed = m.riskCategories.filter((c) => REGULATION_BACKED_CATEGORIES.includes(c));
       if (backed.length === 0) continue;
+      for (const c of backed) escalated.add(`${m.ingredientId}:${c}`);
       fired.push('Avoid');
       explanations.push({
         ingredientName: m.inciName,
-        message: `${m.inciName} is a ${backed.join(' and ')} and you reported sensitive skin.`,
+        message: `${m.inciName} is ${backed.map((c) => CATEGORY_LABEL[c]).join(' and ')}, and you reported sensitive skin.`,
         sourceCitation: m.sourceCitation,
       });
     }
@@ -186,12 +200,15 @@ export function score(result: MatchResult): ScoredResult {
   }
 
   // Rule 5 — a risk tag the matcher resolved as relevant to this user's skin type.
+  // Anything rule 3 already escalated is skipped: repeating it would show the user two
+  // near-identical sentences about one ingredient, and the weaker one adds nothing.
   for (const m of result.matches) {
     for (const conflict of m.skinTypeConflicts) {
+      if (escalated.has(`${m.ingredientId}:${conflict.riskCategory}`)) continue;
       fired.push('Caution');
       explanations.push({
         ingredientName: m.inciName,
-        message: `${m.inciName} is tagged ${conflict.riskCategory}. ${conflict.interactionNote}`,
+        message: `${m.inciName} is ${CATEGORY_LABEL[conflict.riskCategory]}. ${conflict.interactionNote}`,
         sourceCitation: m.sourceCitation,
       });
     }
