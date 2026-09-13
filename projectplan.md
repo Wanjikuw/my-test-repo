@@ -93,23 +93,51 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 
 **Deliverable:** versioned, seeded `ingredients` dataset + written scoring rubric.
 
-| Task                                                          | Status                                   |
-| ------------------------------------------------------------- | ---------------------------------------- |
-| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`              |
-| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                       |
-| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                           |
-| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (9 cases)                 |
-| EU Annex III fragrance allergens transcribed                  | ✅ **81 entries**, cited per entry       |
-| Annex II prohibition modelled as `regulatory_status`          | ✅ rubric §3.3 — not a 6th risk category |
-| Dataset invariants under test                                 | ✅ 29 tests, all passing                 |
-| Seeder refuses to revive repealed Annex III entries           | ✅                                       |
-| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out        |
-| Butylphenyl Methylpropional in the Annex II set               | 🔴 49 of 57 delisted hits — rubric §6 #8 |
-| Preservative sensitizers with defensible citations            | 🔴 placeholder citations only            |
-| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                           |
-| `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 5 unreachable**        |
-| CosIng ingestion route                                        | ⬜ no bulk export found                  |
-| Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)    |
+| Task                                                          | Status                                      |
+| ------------------------------------------------------------- | ------------------------------------------- |
+| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`                 |
+| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                          |
+| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                              |
+| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (9 cases)                    |
+| EU Annex III fragrance allergens transcribed                  | ✅ **81 entries**, cited per entry          |
+| Annex II prohibition modelled as `regulatory_status`          | ✅ rubric §3.3 — not a 6th risk category    |
+| Dataset invariants under test                                 | ✅ 29 tests, all passing                    |
+| Seeder refuses to revive repealed Annex III entries           | ✅                                          |
+| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out           |
+| Butylphenyl Methylpropional in the Annex II set               | 🔴 49 of 57 delisted hits — rubric §6 #8    |
+| Preservative sensitizers with defensible citations            | 🔴 placeholder citations only               |
+| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                              |
+| `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 5 unreachable**           |
+| CosIng ingestion route                                        | ⬜ no bulk export found                     |
+| Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)       |
+| Dataset seeded into Supabase                                  | ✅ 119 ingredients, 84 tags, 1,489 products |
+
+### Seeded database state
+
+Seeded into Supabase `bjzzivckgjglkxlywbut` on 2026-09-13, after RLS was enabled and its
+five read policies were applied — so no row has ever existed in an unprotected table.
+
+| Table                   | Rows      | Note                                                           |
+| ----------------------- | --------- | -------------------------------------------------------------- |
+| `ingredients`           | **119**   | 81 Annex III + 3 preservatives + 35 Annex II                   |
+| `ingredient_risk_tags`  | **84**    | 81 `fragrance_allergen`, 3 `preservative_sensitizer`           |
+| `products`              | **1,489** | Open Beauty Facts, skincare filter                             |
+| `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5   |
+| `skin_type_sensitivity` | 0         | Open item 7 — precedence rule 5 stays unreachable until seeded |
+
+`regulatory_status` distribution, which is the first end-to-end proof of the Section 3.3
+model against a real database:
+
+| Status                    | Count |
+| ------------------------- | ----- |
+| `restricted`              | 81    |
+| `prohibited_as_fragrance` | 32    |
+| `prohibited`              | 3     |
+| `none`                    | 3     |
+
+Two invariants were asserted post-seed: **35 ingredients carry no risk tag** (exactly the
+Annex II set, which must never be tagged with a risk category) and **0 risk tags have an
+empty citation**.
 
 ### Dataset provenance
 
