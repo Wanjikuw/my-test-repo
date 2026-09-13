@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { normaliseInciName, looseInciName, parseIngredientList } from './normalise';
+import {
+  normaliseInciName,
+  looseInciName,
+  commonNameVariant,
+  parseIngredientList,
+} from './normalise';
 
 describe('parseIngredientList', () => {
   it('splits an ordinary comma-separated label', () => {
@@ -92,5 +97,49 @@ describe('looseInciName', () => {
 
   it('collapses the gap the removed insert leaves behind', () => {
     expect(looseInciName('Aqua (Water)')).toBe('aqua');
+  });
+});
+
+describe('spelling canonicalisation', () => {
+  it('folds British spellings onto the INCI glossary forms', () => {
+    expect(normaliseInciName('Sodium Laureth Sulphate')).toBe('sodium laureth sulfate');
+    expect(normaliseInciName('Aluminium Starch Octenylsuccinate')).toBe(
+      'aluminum starch octenylsuccinate',
+    );
+    expect(normaliseInciName('Glycerine')).toBe('glycerin');
+  });
+
+  it('folds the same way from either direction, so the index and query agree', () => {
+    expect(normaliseInciName('Sulphate')).toBe(normaliseInciName('Sulfate'));
+  });
+});
+
+describe('commonNameVariant', () => {
+  it('swaps the binomial for the bracketed common name', () => {
+    expect(commonNameVariant('Theobroma Cacao (Cocoa) Seed Butter')).toBe('cocoa seed butter');
+    expect(commonNameVariant('Simmondsia Chinensis (Jojoba) Seed Oil')).toBe('jojoba seed oil');
+  });
+
+  it('handles an insert with nothing after it', () => {
+    expect(commonNameVariant('Aqua (Water)')).toBe('water');
+  });
+
+  it('returns null when there is no parenthetical', () => {
+    expect(commonNameVariant('Squalane')).toBeNull();
+  });
+
+  // Without this guard a chemical fragment becomes a nonsense key that fuzzy search
+  // could later latch onto.
+  it('refuses a parenthetical that is not a plain word', () => {
+    expect(commonNameVariant('3- and 4-(4-Hydroxy-4-methylpentyl) cyclohex-3-ene')).toBeNull();
+    expect(commonNameVariant('Something (C12-15) Else')).toBeNull();
+  });
+
+  it('refuses when there is more than one parenthetical', () => {
+    expect(commonNameVariant('Aqua (Water) (Eau)')).toBeNull();
+  });
+
+  it('refuses when nothing precedes the insert', () => {
+    expect(commonNameVariant('(Jojoba) Seed Oil')).toBeNull();
   });
 });
