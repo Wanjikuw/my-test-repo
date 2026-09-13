@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "seed:curated": "tsx src/db/seed/seed-curated-risk-data.ts",
     "seed:prohibited": "tsx src/db/seed/seed-prohibited-substances.ts",
+    "seed:skin-types": "tsx src/db/seed/seed-skin-type-sensitivity.ts",
     "seed:obf": "tsx src/db/seed/import-open-beauty-facts.ts"
   },
   "dependencies": {

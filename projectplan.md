@@ -18,7 +18,7 @@ evidence trail that the iterative methodology was actually followed, not just cl
 | 2 — System design                       | Aug 18 – Aug 24 | ⬜ Not started |
 | 3 — Auth & skin profile                 | Aug 25 – Aug 31 | ⬜ Not started |
 | 4 — Ingredient input (manual + OCR)     | Sep 1 – Sep 7   | ⬜ Not started |
-| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | ⬜ Not started |
+| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | 🟡 Engine done |
 | 6 — Recommendations, history, feedback  | Sep 15 – Sep 19 | ⬜ Not started |
 | 7 — Testing cycle 1 (QA + usability)    | Sep 20 – Sep 24 | ⬜ Not started |
 | 8 — Refinement                          | Sep 25 – Sep 27 | ⬜ Not started |
@@ -44,6 +44,8 @@ Legend: ✅ done · 🟡 in progress / partial · 🔴 blocked · ⬜ not starte
 | `65e770c` | `ci: resolve pnpm version conflict and pin node to .nvmrc`                       | 0     |
 | `4f6d1ad` | `docs: mark remote CI green in project plan`                                     | 0     |
 | `18211f9` | `feat(scoring): model Annex II prohibition as a regulatory status`               | 1     |
+| `f1fae36` | `feat(db): add initial migration and re-verify the product corpus count`         | 1     |
+| `82aac71` | `docs: record the seeded database state`                                         | 1     |
 
 Conventional Commits enforced from commit #1 (history squashed to guarantee this).
 A commit cannot cite its own hash, so this table always lags HEAD by one entry.
@@ -107,7 +109,7 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 | Butylphenyl Methylpropional in the Annex II set               | 🔴 49 of 57 delisted hits — rubric §6 #8    |
 | Preservative sensitizers with defensible citations            | 🔴 placeholder citations only               |
 | `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                              |
-| `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 5 unreachable**           |
+| `skin_type_sensitivity` seed data                             | ✅ 7 rows — rule 5 verified firing          |
 | CosIng ingestion route                                        | ⬜ no bulk export found                     |
 | Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)       |
 | Dataset seeded into Supabase                                  | ✅ 119 ingredients, 84 tags, 1,489 products |
@@ -117,13 +119,13 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 Seeded into Supabase `bjzzivckgjglkxlywbut` on 2026-09-13, after RLS was enabled and its
 five read policies were applied — so no row has ever existed in an unprotected table.
 
-| Table                   | Rows      | Note                                                           |
-| ----------------------- | --------- | -------------------------------------------------------------- |
-| `ingredients`           | **119**   | 81 Annex III + 3 preservatives + 35 Annex II                   |
-| `ingredient_risk_tags`  | **84**    | 81 `fragrance_allergen`, 3 `preservative_sensitizer`           |
-| `products`              | **1,489** | Open Beauty Facts, skincare filter                             |
-| `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5   |
-| `skin_type_sensitivity` | 0         | Open item 7 — precedence rule 5 stays unreachable until seeded |
+| Table                   | Rows      | Note                                                         |
+| ----------------------- | --------- | ------------------------------------------------------------ |
+| `ingredients`           | **119**   | 81 Annex III + 3 preservatives + 35 Annex II                 |
+| `ingredient_risk_tags`  | **84**    | 81 `fragrance_allergen`, 3 `preservative_sensitizer`         |
+| `products`              | **1,489** | Open Beauty Facts, skincare filter                           |
+| `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5 |
+| `skin_type_sensitivity` | **7**     | Seeded; 3 rows can fire today, 4 await open item 5           |
 
 `regulatory_status` distribution, which is the first end-to-end proof of the Section 3.3
 model against a real database:

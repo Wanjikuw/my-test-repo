@@ -410,8 +410,15 @@ can reconstruct the decision history.
 | 7   | Populate `skin_type_sensitivity` — currently no rows, so rule 5 cannot fire  | Phase 5           | Wanjiku |
 | 8   | Add Butylphenyl Methylpropional to the Annex II set from the amending act    | Compliance recall | Wanjiku |
 
-Item 7 is easy to miss: the table exists in the schema but has no seed data, so
-precedence rule 5 is unreachable until it is populated.
+**Item 7 is resolved.** `skin_type_sensitivity` holds 7 rows and rule 5 was verified
+firing against the live database: `Linalool` on `dry` skin scores `Caution`, on `sensitive`
+scores `Avoid` via rule 3, and on `normal` scores `Safe`. `skin_type` was also promoted
+from `varchar(32)` to a Postgres enum, because a typo in that column inserted cleanly and
+then silently never matched — rule 5 would have failed closed with no error anywhere.
+
+Four of the seven rows point at `common_irritant` or `comedogenic`, which currently have no
+tagged ingredients, so those cannot fire until open item 5 lands. They are seeded now
+because activating them then needs no migration and no code change.
 
 Item 8 is the largest remaining compliance gap: the substance accounts for 49 of the 57
 delisted-substance hits in the corpus, more than five times HICC's share. It is left open
