@@ -9,8 +9,15 @@ import {
 import { curatedFragranceAllergens, dualStatusSubstances } from './curated-risk-data';
 
 describe('prohibited substances', () => {
-  it('keeps the three former allergens separate from the restricted dataset', () => {
-    expect(bannedFormerAllergens.map((s) => s.annexIIEntry)).toEqual([1380, 1381, 1382]);
+  it('keeps the delisted former allergens separate from the restricted dataset', () => {
+    expect(bannedFormerAllergens.map((s) => s.annexIIEntry)).toEqual([1380, 1381, 1382, 1666]);
+  });
+
+  it('bans delisted former allergens outright rather than only as fragrance', () => {
+    for (const s of bannedFormerAllergens) {
+      expect(s.prohibitedOnlyAsFragrance).toBe(false);
+      expect(regulatoryStatusFor(s)).toBe<RegulatoryStatus>('prohibited');
+    }
   });
 
   it('only shares a CAS with Annex III where the regulation itself cross-references it', () => {

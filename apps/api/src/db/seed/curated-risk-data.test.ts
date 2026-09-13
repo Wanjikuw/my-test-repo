@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { REGULATION_BACKED_CATEGORIES } from '@allergy-checker/shared';
 import {
   substitutedFragranceAllergens,
   addedFragranceAllergens,
   preExistingFragranceAllergens,
   curatedFragranceAllergens,
   curatedPreservativeSensitizers,
+  curatedComedogenicIngredients,
+  curatedCommonIrritants,
+  curatedPhotosensitizers,
+  nonComedogenicControls,
   repealedAnnexEntries,
   deletedFragranceAllergenEntries,
 } from './curated-risk-data';
@@ -91,5 +96,93 @@ describe('curated Annex III fragrance allergen dataset', () => {
       (e) => !new RegExp(`entry ${e.annexEntry}\\b`).test(e.sourceCitation),
     );
     expect(vague).toEqual([]);
+  });
+});
+
+describe('curated comedogenic dataset', () => {
+  it('cites a named study with a PMID for every entry', () => {
+    for (const entry of curatedComedogenicIngredients) {
+      expect(entry.sourceCitation).toMatch(/PMID \d+/);
+      expect(entry.riskCategory).toBe('comedogenic');
+    }
+  });
+
+  it('claims no CAS identity, because neither source paper gives one', () => {
+    for (const entry of curatedComedogenicIngredients) {
+      expect(entry.casNumbers).toEqual([]);
+      expect(entry.ecNumbers).toEqual([]);
+    }
+  });
+
+  it('claims no regulatory provision, because no Annex covers comedogenicity', () => {
+    for (const entry of curatedComedogenicIngredients) {
+      expect(entry.annexEntry).toBe(0);
+    }
+  });
+
+  // Draelos & DiNardo (PMID 16488305) found comedogenic raw materials do not reliably make
+  // finished products comedogenic, so this evidence must never drive an Avoid.
+  it('stays out of the regulation-backed set that rule 3 escalates on', () => {
+    expect(REGULATION_BACKED_CATEGORIES).not.toContain('comedogenic');
+  });
+
+  it('never tags a material the same studies reported as negative', () => {
+    const tagged = new Set(
+      curatedComedogenicIngredients.flatMap((e) => [e.inciName, ...e.aliases]),
+    );
+    expect(nonComedogenicControls.filter((c) => tagged.has(c))).toEqual([]);
+  });
+
+  it('lists each ingredient once', () => {
+    const names = curatedComedogenicIngredients.map((e) => e.inciName);
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe('curated photosensitizing dataset', () => {
+  it('covers exactly the three Annex III entries that restrict UV exposure', () => {
+    expect(curatedPhotosensitizers.map((e) => e.annexEntry)).toEqual([308, 309, 323]);
+  });
+
+  it('quotes the UV restriction as its evidence rather than inferring the hazard', () => {
+    for (const entry of curatedPhotosensitizers) {
+      expect(entry.sourceCitation).toContain('Annex III entry');
+      expect(entry.sourceCitation).toContain('UV light');
+      expect(entry.riskCategory).toBe('photosensitizing');
+    }
+  });
+
+  // The citrus oils carry only a labelling threshold, so they are fragrance allergens here.
+  it('does not claim the Annex III citrus oils are photosensitizers', () => {
+    const names = curatedPhotosensitizers.map((e) => e.inciName.toLowerCase());
+    expect(names.some((n) => n.includes('citrus'))).toBe(false);
+  });
+});
+
+describe('curated common irritant dataset', () => {
+  it('cites a named study with a PMID for every entry', () => {
+    for (const entry of curatedCommonIrritants) {
+      expect(entry.sourceCitation).toMatch(/PMID \d+/);
+      expect(entry.riskCategory).toBe('common_irritant');
+    }
+  });
+
+  it('claims no regulatory provision, because Annex III never mentions irritation', () => {
+    for (const entry of curatedCommonIrritants) {
+      expect(entry.annexEntry).toBe(0);
+      expect(entry.casNumbers).toEqual([]);
+    }
+  });
+
+  it('keeps irritants out of the allergen categories', () => {
+    const allergenNames = new Set(
+      [...curatedFragranceAllergens, ...curatedPreservativeSensitizers].map((e) => e.inciName),
+    );
+    expect(curatedCommonIrritants.filter((e) => allergenNames.has(e.inciName))).toEqual([]);
+  });
+
+  it('lists each ingredient once', () => {
+    const names = curatedCommonIrritants.map((e) => e.inciName);
+    expect(new Set(names).size).toBe(names.length);
   });
 });

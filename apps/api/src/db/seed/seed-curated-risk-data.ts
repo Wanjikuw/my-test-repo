@@ -13,12 +13,21 @@ import { ingredients, ingredientRiskTags } from '../schema';
 import {
   curatedFragranceAllergens,
   curatedPreservativeSensitizers,
+  curatedComedogenicIngredients,
+  curatedCommonIrritants,
+  curatedPhotosensitizers,
   repealedAnnexEntries,
   deletedFragranceAllergenEntries,
 } from './curated-risk-data';
 
 async function main() {
-  const allEntries = [...curatedFragranceAllergens, ...curatedPreservativeSensitizers];
+  const allEntries = [
+    ...curatedFragranceAllergens,
+    ...curatedPreservativeSensitizers,
+    ...curatedComedogenicIngredients,
+    ...curatedCommonIrritants,
+    ...curatedPhotosensitizers,
+  ];
 
   const blocked = [
     ...repealedAnnexEntries,
@@ -37,8 +46,9 @@ async function main() {
       .values({
         inciName: entry.inciName,
         aliases: entry.aliases,
-        // Annex III entries are restricted. The preservatives carry annexEntry 0 because no
-        // numbered provision applies to them, so they get no regulatory status.
+        // Annex III entries are restricted. The preservative, comedogenic and irritant
+        // entries carry annexEntry 0 because no numbered provision applies to them, so they
+        // get no regulatory status.
         regulatoryStatus: entry.annexEntry > 0 ? 'restricted' : 'none',
         sourceCitation: entry.sourceCitation,
       })

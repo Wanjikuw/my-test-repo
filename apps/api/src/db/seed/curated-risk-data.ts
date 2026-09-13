@@ -25,7 +25,12 @@
  * transcription — verify before citing the dataset as final.
  */
 
-export type RiskCategory = 'fragrance_allergen' | 'preservative_sensitizer';
+export type RiskCategory =
+  | 'fragrance_allergen'
+  | 'preservative_sensitizer'
+  | 'comedogenic'
+  | 'common_irritant'
+  | 'photosensitizing';
 
 export type CuratedRiskEntry = {
   /** Name the regulation requires on the label; grouped entries use their collective name. */
@@ -1049,4 +1054,250 @@ export const curatedPreservativeSensitizers: CuratedRiskEntry[] = [
     sourceCitation: 'FDA cosmetic ingredient guidance — CITATION INCOMPLETE, see rubric doc §6',
     notes: 'Formaldehyde-releaser',
   },
+];
+
+/**
+ * Comedogenic ingredients.
+ *
+ * This is the weakest-evidence dataset in the project and must be read with that in mind.
+ * There is no regulatory source: no Annex of Regulation (EC) No 1223/2009 mentions
+ * comedogenicity at all. The evidence is the rabbit-ear assay literature, and its authors
+ * are candid about the model — Fulton (1984) calls it "not an ideal animal model but is the
+ * best we have".
+ *
+ * The decisive caveat comes from Draelos ZD, DiNardo JC, "A re-evaluation of the
+ * comedogenicity concept", J Am Acad Dermatol. 2006;54(3):507-512,
+ * doi:10.1016/j.jaad.2005.11.1058 (PMID 16488305), which tested finished products in humans
+ * and concluded: "Finished products using comedogenic ingredients are not necessarily
+ * comedogenic." A comedogenic ingredient on a label is therefore evidence about the raw
+ * material, not a prediction about the product. Scoring must never escalate on it alone;
+ * `comedogenic` is deliberately absent from REGULATION_BACKED_CATEGORIES so rule 3 cannot
+ * raise it to Avoid.
+ *
+ * `casNumbers` is empty throughout on purpose. Both source papers identify materials by
+ * ingredient name, not by CAS, so asserting a CAS here would claim a precision the citation
+ * does not carry. Matching is by INCI name and alias.
+ *
+ * NOT TRANSCRIBED: Fulton (1984) also reports every D&C Red dye tested as comedogenic. Those
+ * are US color-additive designations with no clean one-to-one mapping to the EU CI numbers a
+ * European label carries, so they are omitted rather than guessed at.
+ */
+
+const NGUYEN_2007 =
+  'Nguyen SH, Dang TP, Maibach HI. Comedogenicity in rabbit: some cosmetic ingredients/vehicles. Cutan Ocul Toxicol. 2007;26(4):287-292. doi:10.1080/15569520701555383 (PMID 18058303)';
+
+const FULTON_1984 =
+  'Fulton JE Jr, Pay SR, Fulton JE 3rd. Comedogenicity of current therapeutic products, cosmetics, and ingredients in the rabbit ear. J Am Acad Dermatol. 1984;10(1):96-105. doi:10.1016/s0190-9622(84)80050-x (PMID 6229554)';
+
+const comedogenic = (
+  inciName: string,
+  aliases: string[],
+  refs: string[],
+  notes: string,
+): CuratedRiskEntry => ({
+  inciName,
+  aliases,
+  riskCategory: 'comedogenic',
+  annexEntry: 0,
+  casNumbers: [],
+  ecNumbers: [],
+  sourceCitation: refs.join(' | '),
+  notes,
+});
+
+export const curatedComedogenicIngredients: CuratedRiskEntry[] = [
+  comedogenic(
+    'Isopropyl Myristate',
+    ['IPM'],
+    [NGUYEN_2007, FULTON_1984],
+    'Positive in both studies; Fulton treats it as the reference offender of this class.',
+  ),
+  comedogenic('Isopropyl Palmitate', ['IPP'], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Isopropyl Isostearate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Butyl Stearate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Decyl Oleate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Isostearyl Neopentanoate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Isocetyl Stearate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic('Myristyl Myristate', [], [NGUYEN_2007, FULTON_1984], 'Positive in both.'),
+  comedogenic(
+    'Theobroma Cacao (Cocoa) Seed Butter',
+    ['Cocoa Butter'],
+    [NGUYEN_2007],
+    'Reported as cocoa butter; listed here under the INCI name a label would carry.',
+  ),
+  comedogenic(
+    'Ethylhexyl Stearate',
+    ['Octyl Stearate'],
+    [FULTON_1984],
+    'Fulton names it octyl stearate, the former INCI name for the same ester.',
+  ),
+  comedogenic(
+    'Ethylhexyl Palmitate',
+    ['Octyl Palmitate'],
+    [FULTON_1984],
+    'Fulton names it octyl palmitate, the former INCI name for the same ester.',
+  ),
+  comedogenic('PPG-2 Myristyl Propionate', [], [FULTON_1984], 'Named individually by Fulton.'),
+  comedogenic(
+    'Acetylated Lanolin',
+    [],
+    [FULTON_1984],
+    'Fulton singles out acetylated and ethoxylated lanolin derivatives. Only the acetylated ' +
+      'form is transcribed: "ethoxylated lanolins" names a family, and picking a PEG number ' +
+      'would invent specificity the source does not give.',
+  ),
+  comedogenic(
+    'Lanolin',
+    [],
+    [FULTON_1984],
+    'Fulton: "Lanolins continue to be a problem", before naming the derivatives.',
+  ),
+];
+
+/**
+ * Materials the rabbit-ear studies tested and found negative. Kept so the negative result is
+ * as durable as the positive one — sodium lauryl sulfate in particular is a well-known
+ * irritant, and irritancy is a separate axis from comedogenicity.
+ */
+export const nonComedogenicControls: readonly string[] = [
+  'Cetyl Alcohol',
+  'Stearyl Alcohol',
+  'Paraffin',
+  'Sodium Lauryl Sulfate',
+  'Petrolatum',
+];
+
+/**
+ * Photosensitising ingredients.
+ *
+ * Unlike `comedogenic`, this category IS regulation-backed. Three Annex III entries carry a
+ * restriction whose subject matter is light exposure, in the regulation's own words:
+ * "Not to be used in sunscreen products and products marketed for exposure to
+ * natural/artificial UV light". That sentence is the evidence; nothing here is inferred.
+ *
+ * Entries 308 and 309 additionally cap alpha-terthienyl (terthiophen) at 0,35 % of the
+ * extract or oil, which is the constituent the restriction exists to control.
+ *
+ * Deliberately NOT included: Annex II entry 358 prohibits furocoumarins (trioxysalen,
+ * 8-methoxypsoralen, 5-methoxypsoralen) except at natural levels in essences. That is a
+ * prohibition, not a risk tag, and "Furocoumarines" is a substance class that no label
+ * would ever print, so it has no place in a name-matched ingredient table.
+ *
+ * Also not included: the Annex III citrus oils (entries 350-358, bergamot, lemon and the
+ * rest). They look like photosensitisers and several genuinely are, but their Annex III
+ * entries impose only the Article 19(1)(g) disclosure threshold, with no UV restriction at
+ * all. They are already seeded as `fragrance_allergen`, which is what the regulation
+ * actually says about them. Tagging them here would be our inference, not the regulator's.
+ */
+
+const ANNEX_III_UV = (entry: number) =>
+  `Regulation (EC) No 1223/2009, Annex III entry ${entry} (consolidated text, ` +
+  `CELEX:02009R1223) — restriction: "Not to be used in sunscreen products and products ` +
+  `marketed for exposure to natural/artificial UV light"`;
+
+export const curatedPhotosensitizers: CuratedRiskEntry[] = [
+  {
+    inciName: 'Tagetes Minuta Flower Extract',
+    aliases: ['Tagetes Minuta Flower Oil'],
+    riskCategory: 'photosensitizing',
+    annexEntry: 308,
+    casNumbers: ['91770-75-1', '8016-84-0'],
+    ecNumbers: ['294-862-7'],
+    sourceCitation: ANNEX_III_UV(308),
+    notes:
+      'Leave-on 0,01 %, rinse-off 0,1 %. Alpha terthienyl (terthiophen) content of the ' +
+      'extract/oil must not exceed 0,35 %. Shares a combined limit with entry 309.',
+  },
+  {
+    inciName: 'Tagetes Patula Flower Extract',
+    aliases: ['Tagetes Patula Flower Oil'],
+    riskCategory: 'photosensitizing',
+    annexEntry: 309,
+    casNumbers: ['91722-29-1', '8016-84-0'],
+    ecNumbers: ['294-431-3'],
+    sourceCitation: ANNEX_III_UV(309),
+    notes:
+      'Leave-on 0,01 %, rinse-off 0,1 %. Alpha terthienyl (terthiophen) content of the ' +
+      'extract/oil must not exceed 0,35 %. Shares a combined limit with entry 308. ' +
+      'Tagetes erecta, a third species, is prohibited outright by Annex II entry 1383.',
+  },
+  {
+    // The consolidated Annex III leaves the INCI column blank here, so the substance name is used.
+    inciName: 'Methyl-N-methylanthranilate',
+    aliases: [],
+    riskCategory: 'photosensitizing',
+    annexEntry: 323,
+    casNumbers: ['85-91-6'],
+    ecNumbers: ['201-642-6'],
+    sourceCitation: ANNEX_III_UV(323),
+    notes: 'Leave-on 0,1 %, rinse-off 0,2 %. Must also not be used with nitrosating agents.',
+  },
+];
+
+/**
+ * Common irritants.
+ *
+ * Literature-only, like `comedogenic`. Annex III contains no restriction anywhere that turns
+ * on irritation — the word does not appear once in its 12,000 lines — so there is nothing
+ * regulatory to anchor to.
+ *
+ * The list is short on purpose. Irritancy is dose- and vehicle-dependent, and the literature
+ * is full of papers that measure irritation using an ingredient rather than papers that
+ * establish an ingredient is an irritant. Only ingredients a source names outright are here.
+ *
+ * A distinction worth preserving: irritation is not allergy. An irritant damages the barrier
+ * in anyone given enough exposure; an allergen provokes an immune response in the sensitised
+ * only. Several sources conflate them. Entries here are irritants, and the separate
+ * `preservative_sensitizer` and `fragrance_allergen` categories carry the allergy evidence.
+ */
+
+const YU_SCHALOCK_2026 =
+  'Yu J, Schalock PC. Aspects of Adverse Effects of Cosmetic Products: An Invited Narrative Review. Acta Derm Venereol. 2026;106:adv-2026-0340. doi:10.2340/actadv.v106.adv-2026-0340 (PMID 42343576) — "Anionic surfactants, including sodium lauryl sulfate (SLS) ... sodium laureth sulfate and TEA-lauryl sulfate, are known to be potent irritants"';
+
+const GLOOR_2004 =
+  'Gloor M, Senger B, Langenauer M, Fluhr JW. On the course of the irritant reaction after irritation with sodium lauryl sulphate. Skin Res Technol. 2004;10(3):144-148. doi:10.1111/j.1600-0846.2004.00074.x (PMID 15225263)';
+
+const BRANCO_2005 =
+  'Branco N, Lee I, Zhai H, Maibach HI. Long-term repetitive sodium lauryl sulfate-induced irritation of the skin: an in vivo study. Contact Dermatitis. 2005;53(5):278-284. doi:10.1111/j.0105-1873.2005.00703.x (PMID 16283906)';
+
+const NUSKEN_2024 =
+  'Nüsken M, Heinemeier F, Matzke SS, et al. Immune response to topical sodium lauryl sulfate differs from classical irritant and allergic contact dermatitis. Eur J Immunol. 2024;54(12):e2350798. doi:10.1002/eji.202350798 (PMID 39498726)';
+
+const irritant = (
+  inciName: string,
+  aliases: string[],
+  refs: string[],
+  notes: string,
+): CuratedRiskEntry => ({
+  inciName,
+  aliases,
+  riskCategory: 'common_irritant',
+  annexEntry: 0,
+  casNumbers: [],
+  ecNumbers: [],
+  sourceCitation: refs.join(' | '),
+  notes,
+});
+
+export const curatedCommonIrritants: CuratedRiskEntry[] = [
+  irritant(
+    'Sodium Lauryl Sulfate',
+    ['SLS', 'Sodium Dodecyl Sulfate'],
+    [YU_SCHALOCK_2026, GLOOR_2004, BRANCO_2005, NUSKEN_2024],
+    'The reference irritant. Used as the positive control in diagnostic patch testing, ' +
+      'which is why its irritancy is better characterised than any other cosmetic ingredient.',
+  ),
+  irritant(
+    'Sodium Laureth Sulfate',
+    ['SLES', 'Sodium Lauryl Ether Sulfate'],
+    [YU_SCHALOCK_2026],
+    'Named as a potent irritant alongside SLS. Often marketed as the milder substitute for ' +
+      'SLS; the source does not support treating it as non-irritant.',
+  ),
+  irritant(
+    'TEA-Lauryl Sulfate',
+    ['Triethanolamine Lauryl Sulfate'],
+    [YU_SCHALOCK_2026],
+    'Named as a potent irritant alongside SLS.',
+  ),
 ];

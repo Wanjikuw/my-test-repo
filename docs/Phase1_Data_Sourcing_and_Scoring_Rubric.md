@@ -198,17 +198,22 @@ safe:
 | ----- | --------------------------- | ----------------------------------------- |
 | 68    | Benzyl alcohol              | Labelling duty moved to entry 45          |
 | 79    | HICC                        | Moved to Annex II entry 1380 — prohibited |
-| 83    | Butylphenyl Methylpropional | Absent from Annex III entirely            |
+| 83    | Butylphenyl Methylpropional | Moved to Annex II entry 1666 — prohibited |
 
 This is not academic. **57 corpus products still name a delisted substance** — 49 name
 butylphenyl methylpropional and 9 name HICC. Scoring those as ordinary restricted
 allergens would understate them, and omitting them would hide them. The coverage script
 reports them separately.
 
-HICC is now seeded with `regulatoryStatus = prohibited` (Section 3.3), so the 9 products
-naming it resolve through precedence rule 1. **Butylphenyl methylpropional is not yet in
-the prohibited set**, so the other 49 — the larger share — are still unexpressed. That is
-open item 8.
+Both are now seeded with `regulatoryStatus = prohibited` (Section 3.3), so all 57 of those
+products resolve through precedence rule 1.
+
+Butylphenyl methylpropional took longer to find than it should have. Annex II lists it as
+`2-(4-tert-butylbenzyl) propionaldehyde` — its chemical name, not its INCI name — so
+searching the annex for the label name returns nothing. CAS **80-54-6** is what ties the
+two together, and it is the only reliable way to check whether a delisted INCI name has
+reappeared in Annex II under another name. The ban is a CMR classification rather than a
+fragrance-scoped one, so the status is `prohibited`, not `prohibited_as_fragrance`.
 
 ### 2f. Some substances hold two statuses at once
 
@@ -409,6 +414,7 @@ can reconstruct the decision history.
 | 6   | Re-verify the Open Beauty Facts row count in Section 2b                      | Report accuracy   | Wanjiku |
 | 7   | Populate `skin_type_sensitivity` — currently no rows, so rule 5 cannot fire  | Phase 5           | Wanjiku |
 | 8   | Add Butylphenyl Methylpropional to the Annex II set from the amending act    | Compliance recall | Wanjiku |
+| 9   | Give `photosensitizing` a scoring path — it has data but no rule can fire it | Scoring recall    | Wanjiku |
 
 **Item 7 is resolved.** `skin_type_sensitivity` holds 7 rows and rule 5 was verified
 firing against the live database: `Linalool` on `dry` skin scores `Caution`, on `sensitive`
@@ -416,15 +422,68 @@ scores `Avoid` via rule 3, and on `normal` scores `Safe`. `skin_type` was also p
 from `varchar(32)` to a Postgres enum, because a typo in that column inserted cleanly and
 then silently never matched — rule 5 would have failed closed with no error anywhere.
 
-Four of the seven rows point at `common_irritant` or `comedogenic`, which currently have no
-tagged ingredients, so those cannot fire until open item 5 lands. They are seeded now
-because activating them then needs no migration and no code change.
+All seven rows are now live: every risk category they reference has tagged ingredients
+behind it (81 fragrance allergens, 3 preservative sensitizers, 14 comedogenic, 3
+irritants). Rule 5 can fire for every skin type except `normal`, which has no rows by
+design.
 
-Item 8 is the largest remaining compliance gap: the substance accounts for 49 of the 57
-delisted-substance hits in the corpus, more than five times HICC's share. It is left open
-rather than guessed because the Annex II entry number and amending regulation must come
-from the published text — the same rule that kept entries 67–92 out of the dataset until a
-real source was available.
+**Item 8 is resolved.** Annex II entry 1666, `2-(4-tert-butylbenzyl) propionaldehyde`,
+CAS 80-54-6, EC 201-289-8, seeded as `prohibited`. It accounted for 49 of the 57
+delisted-substance hits in the corpus, more than five times HICC's share. The entry is
+cited to the consolidated text rather than to the amending act: entry 1666 sits under
+amendment marker ▼M42, but the annex extract carries no legend mapping ▼M codes to
+regulation numbers, and naming the instrument without that legend would be a guess.
+
+**Item 5 is resolved.** All three literature-curated lists are seeded, and they did not
+turn out to be equally weak — the evidence tiers differ sharply and the dataset records
+which is which.
+
+| Category           | Entries | Evidence                                             |
+| ------------------ | ------- | ---------------------------------------------------- |
+| `comedogenic`      | 14      | Rabbit-ear assay literature (PMID 18058303, 6229554) |
+| `common_irritant`  | 3       | Named as irritants in review/clinical studies        |
+| `photosensitizing` | 3       | **Annex III restriction text** — regulation-backed   |
+
+`photosensitizing` was expected to be literature-only and is not. Three Annex III
+entries — **308** (Tagetes minuta), **309** (Tagetes patula) and **323**
+(Methyl-N-methylanthranilate) — carry the restriction "Not to be used in sunscreen
+products and products marketed for exposure to natural/artificial UV light". That
+sentence is the evidence; the hazard is stated by the regulator, not inferred by us.
+Entries 308 and 309 also cap alpha-terthienyl at 0,35 %, the constituent the restriction
+exists to control.
+
+Two traps avoided while sourcing it. The Annex III **citrus oils** (entries 350-358,
+bergamot, lemon and the rest) look like photosensitisers, and several genuinely are, but
+their Annex III entries impose only the Article 19(1)(g) labelling threshold with no UV
+restriction — so they stay `fragrance_allergen`, which is what the regulation actually
+says about them. And **Annex II entry 358**, furocoumarins, is a prohibition rather than
+a risk tag; "Furocoumarines" is a substance class no label would print, so it has no
+place in a name-matched table.
+
+`common_irritant` is the one category with no regulatory anchor at all: the word
+"irritation" does not appear once in Annex III. The list is short deliberately — the
+literature is full of studies that _use_ an ingredient to provoke irritation rather than
+studies that establish the ingredient is an irritant, and only ingredients a source names
+outright were taken.
+
+The comedogenic evidence is the weakest tier and is fenced accordingly. Draelos & DiNardo
+(PMID 16488305) tested finished products on human subjects and concluded that "finished
+products using comedogenic ingredients are not necessarily comedogenic", so the category
+stays out of `REGULATION_BACKED_CATEGORIES` and can never reach `Avoid`. It tops out at
+`Caution` via rule 5. A regression test pins that.
+
+One more source lesson: the SCCS Notes of Guidance (SCCS/1647/22) is a
+testing-methodology manual, not an ingredient list — it explains how to run OECD TG 432
+and carries two CAS numbers across 203 pages. Individual SCCS _substance_ opinions are
+the right document type; the guidance is not.
+
+**Item 9 is new, and it is a real gap.** `photosensitizing` now has data that no rule can
+act on. Rule 5 fires on `skin_type_sensitivity`, and that table has no `photosensitizing`
+row — correctly, because photosensitivity is driven by UV exposure, not by skin type.
+Inventing a skin-type link to make the category fire would misrepresent the hazard. The
+honest fix is a sun-exposure input to the scoring engine, which is a Phase 5 design
+change rather than a data one. Until then these three ingredients are stored and cited
+but score as if untagged.
 
 **Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
 CosIng bulk-export route.
