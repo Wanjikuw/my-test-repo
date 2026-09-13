@@ -262,3 +262,33 @@ describe('fuzzy suggestions', () => {
     expect(score(analysis.result).tier).toBe('UnverifiedCaution');
   });
 });
+
+describe('sun exposure travels through the matcher', () => {
+  it('defaults to null rather than silently claiming sunlight is avoided', () => {
+    const analysis = analyseNames(['Linalool'], INDEX, RULES, { skinType: null });
+    expect(analysis.result.sunExposure).toBeNull();
+  });
+
+  it('passes the caller answer through to the scoring contract', () => {
+    const analysis = analyseNames(['Linalool'], INDEX, RULES, {
+      skinType: null,
+      sunExposure: 'avoided',
+    });
+    expect(analysis.result.sunExposure).toBe('avoided');
+  });
+
+  it('makes a photosensitiser reach Caution end to end', () => {
+    const index = buildIngredientIndex([
+      ingredient({
+        id: 'tag',
+        inciName: 'Tagetes Minuta Flower Extract',
+        regulatoryStatus: 'restricted',
+        riskTags: [{ riskCategory: 'photosensitizing', sourceCitation: 'Annex III entry 308' }],
+      }),
+    ]);
+    const analysis = analyseNames(['Tagetes Minuta Flower Extract'], index, RULES, {
+      skinType: 'normal',
+    });
+    expect(score(analysis.result).tier).toBe('Caution');
+  });
+});
