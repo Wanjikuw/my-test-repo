@@ -1,6 +1,8 @@
 # Simple single-stage build — fine for an MVP; revisit multi-stage only if image size
 # or build time actually becomes a problem, not preemptively.
-FROM node:20-slim
+# Pinned to the exact version in .nvmrc. A floating 20-slim tag would let the image
+# drift onto a runtime CI never tested.
+FROM node:20.20.2-slim
 
 WORKDIR /app
 
@@ -11,7 +13,8 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json .npmrc .
 COPY apps/api ./apps/api
 COPY packages/shared ./packages/shared
 
-RUN npm install -g pnpm@9 && pnpm install --frozen-lockfile
+# Pinned to match packageManager in the root package.json, for the same reason.
+RUN npm install -g pnpm@9.12.0 && pnpm install --frozen-lockfile
 
 # shared must be compiled before api: api consumes it as ./dist, not as raw TypeScript.
 RUN pnpm --filter @allergy-checker/shared build \
