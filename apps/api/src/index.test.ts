@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildServer, resolveCorsOrigin } from './index';
+import { buildServer, resolveCorsOrigin, resolveRateLimit, resolveTrustProxy } from './index';
 
 describe('resolveCorsOrigin', () => {
   it('uses the configured allowlist', () => {
@@ -29,7 +29,7 @@ describe('resolveCorsOrigin', () => {
 
 describe('error handler', () => {
   const withRoutes = async () => {
-    const server = await buildServer({ logger: false });
+    const server = await buildServer({ logger: false, rateLimit: false });
     server.get('/boom', async () => {
       throw new Error('connection string postgres://user:hunter2@db.internal');
     });
@@ -66,8 +66,80 @@ describe('error handler', () => {
   });
 
   it('still serves health', async () => {
-    const server = await buildServer({ logger: false });
+    const server = await buildServer({ logger: false, rateLimit: false });
     const res = await server.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('resolveRateLimit', () => {
+  it('defaults to a limit rather than leaving the API unprotected', () => {
+    expect(resolveRateLimit({}).max).toBe(100);
+  });
+
+  it('honours configured values', () => {
+    expect(resolveRateLimit({ RATE_LIMIT_MAX: '25', RATE_LIMIT_WINDOW: '10 seconds' })).toEqual({
+      max: 25,
+      timeWindow: '10 seconds',
+    });
+  });
+
+  it('ignores a nonsensical limit rather than blocking every request', () => {
+    expect(resolveRateLimit({ RATE_LIMIT_MAX: '0' }).max).toBe(100);
+    expect(resolveRateLimit({ RATE_LIMIT_MAX: 'lots' }).max).toBe(100);
+  });
+});
+
+describe('resolveTrustProxy', () => {
+  // Trusting forwarding headers when nothing sets them lets a caller spoof their address
+  // and sidestep the rate limiter entirely.
+  it('is off unless explicitly enabled', () => {
+    expect(resolveTrustProxy({})).toBe(false);
+    expect(resolveTrustProxy({ TRUST_PROXY: 'false' })).toBe(false);
+  });
+
+  it('is on when the deployment declares it sits behind a proxy', () => {
+    expect(resolveTrustProxy({ TRUST_PROXY: 'true' })).toBe(true);
+  });
+});
+
+describe('rate limiting', () => {
+  it('rejects once the window budget is spent', async () => {
+    const server = await buildServer({
+      logger: false,
+      rateLimit: { max: 2, timeWindow: '1 minute' },
+    });
+    server.get('/ping', async () => ({ ok: true }));
+
+    const first = await server.inject({ method: 'GET', url: '/ping' });
+    const second = await server.inject({ method: 'GET', url: '/ping' });
+    const third = await server.inject({ method: 'GET', url: '/ping' });
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(third.statusCode).toBe(429);
+  });
+
+  // Fly probes health every 15 seconds; a throttled probe would read as an outage.
+  it('never throttles the health check', async () => {
+    const server = await buildServer({
+      logger: false,
+      rateLimit: { max: 1, timeWindow: '1 minute' },
+    });
+
+    for (let i = 0; i < 5; i++) {
+      const res = await server.inject({ method: 'GET', url: '/health' });
+      expect(res.statusCode).toBe(200);
+    }
+  });
+
+  it('can be disabled for callers that need volume', async () => {
+    const server = await buildServer({ logger: false, rateLimit: false });
+    server.get('/ping', async () => ({ ok: true }));
+
+    for (let i = 0; i < 10; i++) {
+      const res = await server.inject({ method: 'GET', url: '/ping' });
+      expect(res.statusCode).toBe(200);
+    }
   });
 });
