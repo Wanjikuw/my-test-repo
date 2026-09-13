@@ -166,6 +166,42 @@ describe('score — tie-breaks', () => {
       }),
     );
     expect(r.tier).toBe('Avoid');
+    // One ingredient must not be explained twice with near-identical sentences.
+    expect(r.explanations).toHaveLength(1);
+    expect(r.explanations[0]?.message).toContain('sensitive skin');
+  });
+
+  it('still applies rule 5 to a category rule 3 did not escalate', () => {
+    const r = score(
+      result({
+        skinType: 'sensitive' as SkinType,
+        matches: [
+          match('Coconut Oil', {
+            riskCategories: ['comedogenic'],
+            skinTypeConflicts: [conflict('comedogenic', 'Occludes follicles.')],
+          }),
+        ],
+      }),
+    );
+    expect(r.tier).toBe('Caution');
+    expect(r.explanations).toHaveLength(1);
+  });
+
+  it('never puts a raw enum name in user-facing text', () => {
+    const r = score(
+      result({
+        skinType: 'dry',
+        matches: [
+          match('Linalool', {
+            riskCategories: ['fragrance_allergen'],
+            skinTypeConflicts: [conflict('fragrance_allergen', 'Strips the barrier.')],
+          }),
+        ],
+      }),
+    );
+    for (const e of r.explanations) {
+      expect(e.message).not.toMatch(/[a-z]+_[a-z]+/);
+    }
   });
 
   it('never returns a tier without an explanation', () => {
