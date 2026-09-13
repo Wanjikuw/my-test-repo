@@ -13,7 +13,7 @@ import {
   normaliseInciName,
   parseIngredientList,
 } from './normalise';
-import { suggestFor, type Suggestion } from './fuzzy';
+import { distanceBudget, suggestFor, type Suggestion } from './fuzzy';
 
 /** One ingredient as the matcher needs it, independent of how it was loaded. */
 export interface IngredientRecord {
@@ -51,8 +51,18 @@ interface IndexEntry {
   strategy: MatchStrategy;
 }
 
+/** A resolved key paired with the name it belongs to, as fuzzy search consumes them. */
+type Candidate = readonly [key: string, inciName: string];
+
 export interface IngredientIndex {
   byName: Map<string, IndexEntry>;
+  /**
+   * The same keys bucketed by length, built once so fuzzy search can skip the ones it
+   * could never reach. An edit budget of n means only keys within n characters are
+   * candidates, which discards the overwhelming majority of a large corpus before any
+   * distance is computed.
+   */
+  byLength: Map<number, Candidate[]>;
 }
 
 /**
@@ -82,7 +92,29 @@ export function buildIngredientIndex(records: IngredientRecord[]): IngredientInd
     }
   }
 
-  return { byName };
+  // Bucketed after the fact, because a key can be reassigned to a stronger strategy
+  // while the main loop is still running.
+  const byLength = new Map<number, Candidate[]>();
+  for (const [key, entry] of byName) {
+    const bucket = byLength.get(key.length);
+    if (bucket) bucket.push([key, entry.record.inciName]);
+    else byLength.set(key.length, [[key, entry.record.inciName]]);
+  }
+
+  return { byName, byLength };
+}
+
+/** Keys close enough in length to be reachable within `budget` edits. */
+function* candidatesWithin(
+  index: IngredientIndex,
+  length: number,
+  budget: number,
+): Generator<Candidate> {
+  const lowest = Math.max(1, length - budget);
+  for (let l = lowest; l <= length + budget; l++) {
+    const bucket = index.byLength.get(l);
+    if (bucket) yield* bucket;
+  }
 }
 
 export interface Resolution {
@@ -218,11 +250,13 @@ export function analyseNames(
 
   const suggestions: Suggestion[] = [];
   if (options.suggestUnmatched) {
-    const candidates = [...index.byName].map(
-      ([key, entry]) => [key, entry.record.inciName] as const,
-    );
     for (const { rawText } of unmatched) {
-      suggestions.push(...suggestFor(rawText, normaliseInciName(rawText), candidates));
+      const query = normaliseInciName(rawText);
+      const budget = distanceBudget(query);
+      if (budget === 0) continue;
+      suggestions.push(
+        ...suggestFor(rawText, query, candidatesWithin(index, query.length, budget)),
+      );
     }
   }
 
