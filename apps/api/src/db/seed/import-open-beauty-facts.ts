@@ -1,9 +1,13 @@
 /**
  * Imports the Open Beauty Facts CSV, filtered to skincare-relevant categories with a
- * populated ingredients_text field — per the verified count in the rubric doc (Section 2b),
- * this yields ~1,552 usable rows out of 64,237 total. DO NOT import the full unfiltered file.
+ * populated ingredients_text field — per the measured count in the rubric doc (Section 2b),
+ * this yields 1,489 usable rows out of 64,237 total. DO NOT import the full unfiltered file.
  *
  * Usage: tsx src/db/seed/import-open-beauty-facts.ts /path/to/en_openbeautyfacts_org_products.csv
+ *        tsx src/db/seed/import-open-beauty-facts.ts <csv> --dry-run
+ *
+ * `--dry-run` counts what the filter would import without opening a database connection,
+ * which is how the row count in the rubric is re-verified.
  *
  * This script only creates `products` rows and best-effort splits `ingredients_text`
  * into candidate ingredient name strings — it does NOT create `ingredients` rows itself.
@@ -14,7 +18,6 @@
  */
 import { createReadStream } from 'node:fs';
 import readline from 'node:readline';
-import { db } from '../client';
 import { products } from '../schema';
 
 const SKINCARE_KEYWORDS = [
@@ -38,9 +41,11 @@ function isSkincareCategory(categoriesEn: string): boolean {
 }
 
 async function main() {
-  const csvPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const csvPath = args.find((a) => !a.startsWith('--'));
   if (!csvPath) {
-    console.error('Usage: tsx import-open-beauty-facts.ts <path-to-csv>');
+    console.error('Usage: tsx import-open-beauty-facts.ts <csv> [--dry-run]');
     process.exit(1);
   }
 
@@ -92,13 +97,19 @@ async function main() {
   }
 
   console.log(`Scanned ${scanned} rows, ${imported} matched the skincare filter.`);
-  console.log('Expected ~1,552 based on prior verification — if this number is very');
-  console.log('different, stop and check whether the CSV or filter logic changed.');
 
   if (rowsToInsert.length === 0) {
     console.log('Nothing to insert.');
     return;
   }
+
+  if (dryRun) {
+    console.log('Dry run — no database connection opened, nothing inserted.');
+    return;
+  }
+
+  // Imported here rather than at module scope so --dry-run works without DATABASE_URL.
+  const { db } = await import('../client');
 
   // Batch insert in chunks to avoid one giant query
   const CHUNK = 500;

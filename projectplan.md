@@ -42,8 +42,11 @@ Legend: ✅ done · 🟡 in progress / partial · 🔴 blocked · ⬜ not starte
 | `4a481e5` | `feat(data): seed annex III entries 67-92 and record two delisted substances`    | 1     |
 | `ba625e1` | `docs: record closed recall gap and dual-status substances`                      | 1     |
 | `65e770c` | `ci: resolve pnpm version conflict and pin node to .nvmrc`                       | 0     |
+| `4f6d1ad` | `docs: mark remote CI green in project plan`                                     | 0     |
+| `18211f9` | `feat(scoring): model Annex II prohibition as a regulatory status`               | 1     |
 
 Conventional Commits enforced from commit #1 (history squashed to guarantee this).
+A commit cannot cite its own hash, so this table always lags HEAD by one entry.
 
 ---
 
@@ -51,37 +54,38 @@ Conventional Commits enforced from commit #1 (history squashed to guarantee this
 
 **Deliverable:** empty-but-running web app and API, both deployed, CI green.
 
-| Task                                                               | Status                               |
-| ------------------------------------------------------------------ | ------------------------------------ |
-| pnpm/Turborepo monorepo: `apps/web`, `apps/api`, `packages/shared` | ✅                                   |
-| Husky + lint-staged + Prettier + ESLint flat config                | ✅ verified on a real commit         |
-| `pnpm-lock.yaml` committed                                         | ✅                                   |
-| Local CI gauntlet green (format/lint/typecheck/test/build)         | ✅                                   |
-| GitHub Actions workflow present                                    | ✅ green on remote (run 33779752322) |
-| Supabase project provisioned                                       | ⬜                                   |
-| Fly.io project + API deployed                                      | ⬜                                   |
-| Vercel project + web deployed                                      | ⬜                                   |
-| Upstash Redis provisioned                                          | ⬜                                   |
-| Sentry DSN wired into API and web                                  | ⬜ (no `@sentry/*` dependency yet)   |
-| First push to GitHub / CI green on remote                          | ✅ `65e770c`                         |
+| Task                                                               | Status                                |
+| ------------------------------------------------------------------ | ------------------------------------- |
+| pnpm/Turborepo monorepo: `apps/web`, `apps/api`, `packages/shared` | ✅                                    |
+| Husky + lint-staged + Prettier + ESLint flat config                | ✅ verified on a real commit          |
+| `pnpm-lock.yaml` committed                                         | ✅                                    |
+| Local CI gauntlet green (format/lint/typecheck/test/build)         | ✅                                    |
+| GitHub Actions workflow present                                    | ✅ green on remote (run 33779752322)  |
+| Supabase project provisioned                                       | ✅ `bjzzivckgjglkxlywbut` (eu-west-2) |
+| Fly.io project + API deployed                                      | ⬜                                    |
+| Vercel project + web deployed                                      | ⬜                                    |
+| Upstash Redis provisioned                                          | ⬜                                    |
+| Sentry DSN wired into API and web                                  | ⬜ (no `@sentry/*` dependency yet)    |
+| First push to GitHub / CI green on remote                          | ✅ `65e770c`                          |
 
 **Toolchain as actually configured:** Node 20.20.2 (nvm), pnpm 9.12.0 (corepack),
 developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 
 **Defects found and fixed while standing this up:**
 
-| Issue                               | Cause                                                                                 | Fix                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Husky hook failed (code 127)        | Hooks run via `sh -e` with a reduced `PATH`; `pnpm` resolved to a Windows binary      | POSIX-safe `PATH` prepend reading `.nvmrc`                                   |
-| Husky hook failed (code 3)          | First fix sourced `nvm.sh`, which is bash-only and dies under dash                    | Removed the `source` entirely                                                |
-| Fix silently no-op'd                | `.nvmrc` was CRLF, so the path became `v20.20.2\r/bin`                                | Stripped CR from 6 files; added `.gitattributes`                             |
-| `tsconfig.tsbuildinfo` staged       | No `*.tsbuildinfo` ignore rule                                                        | Added to `.gitignore`                                                        |
-| CI failed `ERR_PNPM_BAD_PM_VERSION` | pnpm pinned twice: `version: 9` in the workflow and `pnpm@9.12.0` in `packageManager` | Dropped the workflow pin; `packageManager` is now the single source of truth |
-| CI ran a different Node than local  | Workflow hardcoded `node-version: 20` while `.nvmrc` says `20.20.2`                   | Switched to `node-version-file: '.nvmrc'`                                    |
+| Issue                               | Cause                                                                                  | Fix                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Husky hook failed (code 127)        | Hooks run via `sh -e` with a reduced `PATH`; `pnpm` resolved to a Windows binary       | POSIX-safe `PATH` prepend reading `.nvmrc`                                   |
+| Husky hook failed (code 3)          | First fix sourced `nvm.sh`, which is bash-only and dies under dash                     | Removed the `source` entirely                                                |
+| Fix silently no-op'd                | `.nvmrc` was CRLF, so the path became `v20.20.2\r/bin`                                 | Stripped CR from 6 files; added `.gitattributes`                             |
+| `tsconfig.tsbuildinfo` staged       | No `*.tsbuildinfo` ignore rule                                                         | Added to `.gitignore`                                                        |
+| CI failed `ERR_PNPM_BAD_PM_VERSION` | pnpm pinned twice: `version: 9` in the workflow and `pnpm@9.12.0` in `packageManager`  | Dropped the workflow pin; `packageManager` is now the single source of truth |
+| CI ran a different Node than local  | Workflow hardcoded `node-version: 20` while `.nvmrc` says `20.20.2`                    | Switched to `node-version-file: '.nvmrc'`                                    |
+| `db:migrate` failed `ENETUNREACH`   | `db.<ref>.supabase.co` publishes only an AAAA record and WSL has no IPv6 default route | Switched `DATABASE_URL` to the IPv4 session pooler on `aws-0-eu-west-2:5432` |
+| Connection string mis-parsed        | The generated DB password contains a literal `@`, giving the URI authority two `@`     | Percent-encoded the password and appended `sslmode=require`                  |
 
-> ⚠ **Phase 0 is not closeable** until the four provisioning rows are done. CI is now
-> green on `origin/main`, but everything below is still built against a local-only stack:
-> no Supabase, Fly.io, Vercel, Upstash or Sentry yet.
+> ⚠ **Phase 0 is not closeable** until the remaining provisioning rows are done. Supabase
+> is live and migrated, but Fly.io, Vercel, Upstash and Sentry are still unprovisioned.
 
 ---
 
@@ -105,7 +109,7 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 | `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                           |
 | `skin_type_sensitivity` seed data                             | ⬜ **empty — rule 5 unreachable**        |
 | CosIng ingestion route                                        | ⬜ no bulk export found                  |
-| Open Beauty Facts import re-verified                          | ⬜ 1,552/64,237 figure unverified        |
+| Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)    |
 
 ### Dataset provenance
 

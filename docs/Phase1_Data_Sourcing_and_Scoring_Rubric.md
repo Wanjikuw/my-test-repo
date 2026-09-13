@@ -74,11 +74,23 @@ Used to populate `products` with real ingredient strings for testing the matcher
 realistic input, including messy real-world formatting.
 
 The importer filters to skincare-relevant categories with a non-empty `ingredients_text`.
-The scaffold records this as yielding **~1,552 usable rows of 64,237**.
+The scaffold recorded this as yielding ~1,552 usable rows of 64,237. **Re-measured against
+the current export: 1,489 of 64,237.**
 
-> ⚠ This figure was inherited from the scaffold and has **not been independently
-> re-verified** in this repo. Re-run `pnpm --filter @allergy-checker/api seed:obf` against
-> the current export and record the actual number before citing it in the report.
+| Measure                     | Scaffold claim | Measured   |
+| --------------------------- | -------------- | ---------- |
+| Rows in the export          | 64,237         | **64,237** |
+| Passing the skincare filter | ~1,552         | **1,489**  |
+
+The denominator was exact; the numerator was 63 too high, so the inherited figure
+overstated usable coverage by about 4 %. Reproduce with:
+
+```bash
+pnpm --filter @allergy-checker/api exec tsx src/db/seed/import-open-beauty-facts.ts <csv> --dry-run
+```
+
+`--dry-run` applies the filter and reports the count without opening a database
+connection, so the figure can be re-checked on any machine without credentials.
 
 The importer deliberately does not create `ingredients` rows — mapping product text to
 canonical ingredients is matching logic (Section 4.1), not import logic.
@@ -409,6 +421,9 @@ real source was available.
 
 **Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
 CosIng bulk-export route.
+
+**Item 6 is resolved.** Measured at 1,489 of 64,237, not the inherited ~1,552 — see
+Section 2b. The denominator was exact; the numerator was 63 too high.
 
 **Item 1 is closed.** Entries 67-92 are seeded; products missed entirely fell from 73
 to 1. What remains is not a gap but a compliance question — see Section 2e.
