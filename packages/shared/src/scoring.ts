@@ -95,12 +95,24 @@ export const UnmatchedIngredient = z.object({
 export type UnmatchedIngredient = z.infer<typeof UnmatchedIngredient>;
 
 /**
+ * Whether the product is worn where sunlight reaches the skin.
+ *
+ * Photosensitivity needs its own axis because it is driven by UV exposure, not by skin
+ * type. `skin_type_sensitivity` holds no photosensitising row on purpose: inventing a
+ * skin-type link to make the category fire would misdescribe the hazard.
+ */
+export const SunExposure = z.enum(['expected', 'avoided']);
+export type SunExposure = z.infer<typeof SunExposure>;
+
+/**
  * Output of the matching step (Section 4.1) — separate from scoring.
  * The scoring function consumes exactly this shape and nothing else, so `skinType` and
  * the resolved conflicts travel on it rather than as extra arguments.
  */
 export const MatchResult = z.object({
   skinType: SkinType.nullable(),
+  /** Null means the user was not asked, which rule 6 treats as exposure being possible. */
+  sunExposure: SunExposure.nullable(),
   matches: z.array(IngredientMatch),
   unmatched: z.array(UnmatchedIngredient),
 });
@@ -214,7 +226,28 @@ export function score(result: MatchResult): ScoredResult {
     }
   }
 
-  // Rule 6 — absence of evidence is not evidence of safety.
+  // Rule 6 — a photosensitiser only matters where sunlight reaches the skin, so this
+  // turns on exposure rather than skin type. An unanswered question counts as exposure:
+  // the same fail-safe reasoning as rule 7.
+  if (result.sunExposure !== 'avoided') {
+    for (const m of result.matches) {
+      if (!m.riskCategories.includes('photosensitizing')) continue;
+      fired.push('Caution');
+      const context =
+        result.sunExposure === 'expected'
+          ? 'and you said this product is worn in daylight.'
+          : 'You did not say whether it is worn in daylight, so this is flagged rather than assumed safe.';
+      explanations.push({
+        ingredientName: m.inciName,
+        message: `${m.inciName} is ${CATEGORY_LABEL.photosensitizing}${
+          result.sunExposure === 'expected' ? ', ' : '. '
+        }${context}`,
+        sourceCitation: m.sourceCitation,
+      });
+    }
+  }
+
+  // Rule 7 — absence of evidence is not evidence of safety.
   for (const u of result.unmatched) {
     fired.push('UnverifiedCaution');
     explanations.push({

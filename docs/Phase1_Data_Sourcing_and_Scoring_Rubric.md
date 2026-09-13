@@ -321,6 +321,10 @@ Each `IngredientMatch` carries `riskCategories`, `regulatoryStatus`, `sourceCita
 `userDeclaredAllergyMatch`, the last being an exact hit against the user's own declared
 allergy list.
 
+`MatchResult` also carries two pieces of user context that are not properties of any one
+ingredient: `skinType` and `sunExposure`. They sit on the result rather than being passed
+as extra arguments, so `score()` consumes exactly one object and stays pure.
+
 Matching must handle: case and punctuation variation, `parfum`/`fragrance` synonymy,
 aliases (the `ingredients.aliases` array), and near-miss spellings from OCR. Anything
 not confidently matched goes to `unmatched` — it is **never silently dropped**, because
@@ -351,14 +355,23 @@ A weighted sum would produce a number nobody could justify to a user.
 | 3          | `Avoid`             | Any ingredient carries a regulation-backed tag conflicting with declared sensitivity |
 | 4          | `Caution`           | Any ingredient is `prohibited_as_fragrance` and the label cannot establish the role  |
 | 5          | `Caution`           | Any ingredient carries a risk tag relevant to the user's skin type                   |
-| 6          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                     |
-| 7          | `Safe`              | All ingredients matched, none triggered a rule                                       |
+| 6          | `Caution`           | Any ingredient is photosensitising and sun exposure is not ruled out                 |
+| 7          | `UnverifiedCaution` | One or more ingredients are `unmatched` and no higher rule fired                     |
+| 8          | `Safe`              | All ingredients matched, none triggered a rule                                       |
 
 Rule 1 is the only rule that fires with **no user profile at all** — an Annex II ban is a
 fact about the product, not about the person reading the label. Rule 4 is its deliberately
 weaker sibling: the ban is real but conditional on a role the label does not state, so it
 warns without asserting non-compliance. Both must name the Annex II entry in their
 explanation, or the verdict is unusable.
+
+Rule 6 turns on `sunExposure`, not on skin type, and that is the whole point of it.
+Photosensitivity is caused by UV reaching treated skin; it is not a property of dry or
+oily skin. `skin_type_sensitivity` therefore holds no photosensitising row, and adding one
+to make the category fire would have described the hazard wrongly. A null `sunExposure`
+means the user was never asked, which the rule treats as exposure being possible — the
+same fail-safe reasoning as rule 7. Answering "sunlight is avoided" is the only thing that
+silences it.
 
 `UnverifiedCaution` exists so an unrecognised ingredient is never reported as `Safe`.
 Absence of evidence is not evidence of safety, and conflating the two would be the most
@@ -376,12 +389,14 @@ To be turned directly into Vitest cases in Phase 5.
 | 1   | Allergic to Limonene | `Aqua, Glycerin, Limonene`        | `Avoid` — rule 2               |
 | 2   | Sensitive skin       | `Aqua, Methylisothiazolinone`     | `Avoid` — rule 3               |
 | 3   | Oily skin            | `Aqua, Coconut Oil`               | `Caution` — rule 5             |
-| 4   | Empty profile        | `Aqua, Glycerin`                  | `Safe` — rule 7                |
-| 5   | Empty profile        | `Aqua, Xyzzyne`                   | `UnverifiedCaution` — rule 6   |
-| 6   | Allergic to Limonene | `Aqua, Limonene, Xyzzyne`         | `Avoid` — rule 2 beats 6       |
+| 4   | Empty profile        | `Aqua, Glycerin`                  | `Safe` — rule 8                |
+| 5   | Empty profile        | `Aqua, Xyzzyne`                   | `UnverifiedCaution` — rule 7   |
+| 6   | Allergic to Limonene | `Aqua, Limonene, Xyzzyne`         | `Avoid` — rule 2 beats 7       |
 | 7   | Allergic to Rose     | `Aqua, Rosa Damascena Flower Oil` | `Avoid` — via entry 366 alias  |
 | 8   | Empty profile        | `Aqua, Lyral`                     | `Avoid` — rule 1               |
 | 9   | Empty profile        | `Aqua, Ficus Carica Leaf Extract` | `Caution` — rule 4, not rule 1 |
+| 10  | Sun not asked        | `Aqua, Tagetes Minuta Flower Oil` | `Caution` — rule 6             |
+| 11  | Sunlight avoided     | `Aqua, Tagetes Minuta Flower Oil` | rule 6 silent                  |
 
 Case 6 is the tie-break that fixes the severity ordering: a declared-allergy hit must not
 be masked by an unknown ingredient. Case 7 proves alias resolution, without which the
@@ -477,13 +492,25 @@ testing-methodology manual, not an ingredient list — it explains how to run OE
 and carries two CAS numbers across 203 pages. Individual SCCS _substance_ opinions are
 the right document type; the guidance is not.
 
-**Item 9 is new, and it is a real gap.** `photosensitizing` now has data that no rule can
-act on. Rule 5 fires on `skin_type_sensitivity`, and that table has no `photosensitizing`
-row — correctly, because photosensitivity is driven by UV exposure, not by skin type.
-Inventing a skin-type link to make the category fire would misrepresent the hazard. The
-honest fix is a sun-exposure input to the scoring engine, which is a Phase 5 design
-change rather than a data one. Until then these three ingredients are stored and cited
-but score as if untagged.
+**Item 9 is resolved.** `MatchResult` gained a `sunExposure` axis and the precedence tree
+gained rule 6, so a photosensitiser now reaches `Caution` instead of scoring as if
+untagged.
+
+It was not a theoretical gap. A label reading `Aqua, Tagetes Minuta (Marigold) Flower
+Oil, Glycerin` returned **Safe** on every skin type, against an ingredient the regulation
+bars from sun-protection products. That is the most damaging shape of error this system
+can make, and it was produced by correct data meeting an incomplete rule set.
+
+The fix deliberately did not take the cheap route. Adding a `sensitive` x
+`photosensitizing` row to `skin_type_sensitivity` would have made the category fire with
+no contract change, and it would have been wrong: photosensitivity is caused by UV
+reaching treated skin, not by having sensitive skin. The new axis says what is actually
+true, and the three answers now behave as the regulation implies — `expected` and null
+both warn, and only `avoided` is silent.
+
+Null is treated as exposure being possible, matching rule 7's stance that absence of
+evidence is not evidence of safety. Forgetting to ask the question cannot understate
+risk.
 
 **Item 3 is resolved.** See Section 2a — the published Glossary replaces the abandoned
 CosIng bulk-export route.

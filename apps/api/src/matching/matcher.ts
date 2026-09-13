@@ -5,6 +5,7 @@ import type {
   RegulatoryStatus,
   SkinType,
   SkinTypeConflict,
+  SunExposure,
 } from '@allergy-checker/shared';
 import {
   commonNameVariant,
@@ -134,6 +135,11 @@ function conflictsFor(
 
 export interface MatchOptions {
   skinType: SkinType | null;
+  /**
+   * Whether the product is worn where sunlight reaches the skin. Defaults to null, which
+   * rule 6 treats as exposure being possible, so forgetting to ask cannot understate risk.
+   */
+  sunExposure?: SunExposure | null;
   /** INCI names the user has declared an allergy to; matched after normalisation. */
   declaredAllergies?: string[];
   /** Off by default so callers opt in to the cost of scanning the whole index. */
@@ -221,7 +227,12 @@ export function analyseNames(
   }
 
   return {
-    result: { skinType: options.skinType, matches, unmatched },
+    result: {
+      skinType: options.skinType,
+      sunExposure: options.sunExposure ?? null,
+      matches,
+      unmatched,
+    },
     provenance,
     suggestions,
   };

@@ -24,7 +24,7 @@ function match(inciName: string, over: Partial<IngredientMatch> = {}): Ingredien
 }
 
 function result(over: Partial<MatchResult> = {}): MatchResult {
-  return { skinType: null, matches: [], unmatched: [], ...over };
+  return { skinType: null, sunExposure: null, matches: [], unmatched: [], ...over };
 }
 
 const conflict = (riskCategory: RiskCategory, note = 'Note.'): SkinTypeConflict => ({
@@ -214,5 +214,48 @@ describe('score — tie-breaks', () => {
     for (const c of cases) {
       expect(score(c).explanations.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('rule 6 — photosensitising ingredients', () => {
+  const tagetes = () =>
+    match('Tagetes Minuta Flower Extract', { riskCategories: ['photosensitizing'] });
+
+  it('warns when the product is worn in daylight', () => {
+    const r = score(result({ sunExposure: 'expected', matches: [tagetes()] }));
+    expect(r.tier).toBe('Caution');
+    expect(r.explanations[0]?.message).toContain('daylight');
+  });
+
+  // The gap this closes: the category had data but no rule could act on it, so a known
+  // photosensitiser scored Safe on every skin type.
+  it('warns when exposure was never established, rather than assuming safety', () => {
+    const r = score(result({ sunExposure: null, matches: [tagetes()] }));
+    expect(r.tier).toBe('Caution');
+  });
+
+  it('stays quiet when the user says sunlight is avoided', () => {
+    const r = score(result({ sunExposure: 'avoided', matches: [tagetes()] }));
+    expect(r.tier).toBe('Safe');
+  });
+
+  it('does not fire for an ingredient without the tag', () => {
+    const r = score(result({ sunExposure: 'expected', matches: [match('Squalane')] }));
+    expect(r.tier).toBe('Safe');
+  });
+
+  it('is outranked by a prohibition', () => {
+    const r = score(
+      result({
+        sunExposure: 'expected',
+        matches: [tagetes(), match('Lyral', { regulatoryStatus: 'prohibited' })],
+      }),
+    );
+    expect(r.tier).toBe('Avoid');
+  });
+
+  it('explains in plain language, naming no raw category', () => {
+    const r = score(result({ sunExposure: null, matches: [tagetes()] }));
+    for (const e of r.explanations) expect(e.message).not.toMatch(/[a-z]+_[a-z]+/);
   });
 });
