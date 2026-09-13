@@ -34,6 +34,19 @@ export const regulatoryStatusEnum = pgEnum('regulatory_status', [
   'prohibited_as_fragrance',
 ]);
 
+/**
+ * Skin type enum — must stay in sync with SkinType in packages/shared/src/scoring.ts.
+ * Previously a bare varchar, which let a typo insert cleanly and then silently never
+ * match, making precedence rule 5 fail closed with no error anywhere.
+ */
+export const skinTypeEnum = pgEnum('skin_type', [
+  'dry',
+  'oily',
+  'combination',
+  'sensitive',
+  'normal',
+]);
+
 export const ingredients = pgTable('ingredients', {
   id: uuid('id').primaryKey().defaultRandom(),
   inciName: text('inci_name').notNull().unique(),
@@ -72,12 +85,20 @@ export const ingredientRiskTags = pgTable(
   ],
 );
 
-export const skinTypeSensitivity = pgTable('skin_type_sensitivity', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  skinType: varchar('skin_type', { length: 32 }).notNull(), // dry | oily | combination | sensitive | normal
-  riskCategory: riskCategoryEnum('risk_category').notNull(),
-  interactionNote: text('interaction_note').notNull(),
-});
+export const skinTypeSensitivity = pgTable(
+  'skin_type_sensitivity',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    skinType: skinTypeEnum('skin_type').notNull(),
+    riskCategory: riskCategoryEnum('risk_category').notNull(),
+    interactionNote: text('interaction_note').notNull(),
+  },
+  // Same reason as ingredient_risk_tags: without this, re-running the seed duplicates rows,
+  // and a duplicated pair would repeat the same explanation in every scored result.
+  (table) => [
+    uniqueIndex('skin_type_sensitivity_type_category_key').on(table.skinType, table.riskCategory),
+  ],
+);
 
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
