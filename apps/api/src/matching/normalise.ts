@@ -21,7 +21,7 @@ const INVISIBLE = /[\u200b-\u200f\ufeff]/g;
 const UNICODE_DASHES = /[\u2010-\u2015\u2212]/g;
 
 /** Organic/origin markers and trailing punctuation printed alongside a name. */
-const TRAILING_NOISE = /[*†‡.\s]+$/;
+const TRAILING_NOISE = /[*\u2020\u2021.\s]+$/;
 
 /**
  * Common-name inserts sit inside an INCI binomial: `Simmondsia Chinensis (Jojoba) Seed
@@ -31,15 +31,40 @@ const TRAILING_NOISE = /[*†‡.\s]+$/;
  */
 const PARENTHETICAL = /\([^)]*\)/g;
 
-/** Shared by both forms: the transformations that cannot lose information. */
+/**
+ * British spellings, folded onto the American forms the INCI glossary uses. Applied to
+ * both the index and the query, so the direction of the fold cannot matter.
+ *
+ * Orthographic variants only. Genuine synonyms such as Parfum/Fragrance are a data
+ * question and belong in an ingredient's `aliases`, not in normalisation — collapsing
+ * them here would hide the relationship from anyone reading the dataset.
+ */
+const SPELLING_VARIANTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/sulphate/g, 'sulfate'],
+  [/sulphite/g, 'sulfite'],
+  [/sulphur/g, 'sulfur'],
+  [/aluminium/g, 'aluminum'],
+  [/colour/g, 'color'],
+  [/glycerine/g, 'glycerin'],
+];
+
+function canonicaliseSpelling(lowercased: string): string {
+  let out = lowercased;
+  for (const [pattern, replacement] of SPELLING_VARIANTS) out = out.replace(pattern, replacement);
+  return out;
+}
+
+/** Shared by every form: the transformations that cannot lose information. */
 function baseNormalise(raw: string): string {
-  return raw
-    .replace(INVISIBLE, '')
-    .replace(UNICODE_DASHES, '-')
-    .replace(TRAILING_NOISE, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return canonicaliseSpelling(
+    raw
+      .replace(INVISIBLE, '')
+      .replace(UNICODE_DASHES, '-')
+      .replace(TRAILING_NOISE, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase(),
+  );
 }
 
 /** Primary lookup key. Preserves parentheses, so it cannot collide two chemical names. */
@@ -53,6 +78,33 @@ export function normaliseInciName(raw: string): string {
  */
 export function looseInciName(raw: string): string {
   return baseNormalise(raw.replace(PARENTHETICAL, ' ')).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * A label may print the common name alone where the dataset holds the binomial:
+ * `Theobroma Cacao (Cocoa) Seed Butter` is also sold as `Cocoa Seed Butter`. This swaps
+ * the binomial for the bracketed common name.
+ *
+ * Only fires when there is exactly one parenthetical and it is purely alphabetic. That
+ * guard is what stops chemical fragments like `(4-Hydroxy-4-methylpentyl)` from
+ * generating a nonsense key that fuzzy search could later latch onto.
+ */
+export function commonNameVariant(raw: string): string | null {
+  const cleaned = raw.replace(INVISIBLE, '').trim();
+  const matches = cleaned.match(/\([^)]*\)/g);
+  if (!matches || matches.length !== 1) return null;
+
+  const insert = matches[0]!.slice(1, -1).trim();
+  if (!/^[A-Za-z][A-Za-z\s]*$/.test(insert)) return null;
+
+  const open = cleaned.indexOf('(');
+  const close = cleaned.indexOf(')');
+  const before = cleaned.slice(0, open).trim();
+  const after = cleaned.slice(close + 1).trim();
+  if (!before) return null;
+
+  const variant = baseNormalise(`${insert} ${after}`).replace(/\s+/g, ' ').trim();
+  return variant.length > 0 ? variant : null;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { score } from '@allergy-checker/shared';
 import {
+  analyseNames,
   buildIngredientIndex,
   lookup,
   matchLabel,
@@ -47,6 +48,18 @@ const LILIAL = ingredient({
   sourceCitation: 'Annex II entry 1666',
 });
 
+const COCOA = ingredient({
+  id: 'cocoa',
+  inciName: 'Theobroma Cacao (Cocoa) Seed Butter',
+  riskTags: [{ riskCategory: 'comedogenic', sourceCitation: 'PMID 18058303' }],
+});
+
+const SLES = ingredient({
+  id: 'sles',
+  inciName: 'Sodium Laureth Sulfate',
+  riskTags: [{ riskCategory: 'common_irritant', sourceCitation: 'PMID 42343576' }],
+});
+
 const RULES: SensitivityRule[] = [
   {
     skinType: 'sensitive',
@@ -60,20 +73,20 @@ const RULES: SensitivityRule[] = [
   },
 ];
 
-const INDEX = buildIngredientIndex([LINALOOL, JOJOBA, SLS, LILIAL]);
+const INDEX = buildIngredientIndex([LINALOOL, JOJOBA, SLS, LILIAL, COCOA, SLES]);
 
 describe('buildIngredientIndex', () => {
   it('indexes aliases as well as the INCI name', () => {
-    expect(lookup(INDEX, 'Jojoba Oil')?.id).toBe('joj');
-    expect(lookup(INDEX, 'Lilial')?.id).toBe('lil');
+    expect(lookup(INDEX, 'Jojoba Oil')?.record.id).toBe('joj');
+    expect(lookup(INDEX, 'Lilial')?.record.id).toBe('lil');
   });
 
   it('resolves a name printed with a common-name insert', () => {
-    expect(lookup(INDEX, 'Simmondsia Chinensis (Jojoba) Seed Oil')?.id).toBe('joj');
+    expect(lookup(INDEX, 'Simmondsia Chinensis (Jojoba) Seed Oil')?.record.id).toBe('joj');
   });
 
   it('resolves a chemical name Annex II prints differently from the label', () => {
-    expect(lookup(INDEX, 'Butylphenyl Methylpropional')?.id).toBe('lil');
+    expect(lookup(INDEX, 'Butylphenyl Methylpropional')?.record.id).toBe('lil');
   });
 
   it('does not let a later row steal a name an earlier row already claimed', () => {
@@ -81,7 +94,7 @@ describe('buildIngredientIndex', () => {
       ingredient({ id: 'first', inciName: 'Shared Name' }),
       ingredient({ id: 'second', inciName: 'Shared Name' }),
     ]);
-    expect(lookup(dup, 'Shared Name')?.id).toBe('first');
+    expect(lookup(dup, 'Shared Name')?.record.id).toBe('first');
   });
 
   it('returns undefined rather than guessing at an unknown name', () => {
@@ -175,5 +188,77 @@ describe('matchLabel end to end', () => {
     });
     expect(result.matches).toEqual([]);
     expect(score(result).tier).toBe('UnverifiedCaution');
+  });
+});
+
+describe('match provenance', () => {
+  it('records an exact resolution as exact', () => {
+    const analysis = analyseNames(['Linalool'], INDEX, RULES, { skinType: null });
+    expect(analysis.provenance[0]?.strategy).toBe('exact');
+  });
+
+  it('records a common-name-insert resolution as loose', () => {
+    const analysis = analyseNames(['Simmondsia Chinensis (Jojoba) Seed Oil'], INDEX, RULES, {
+      skinType: null,
+    });
+    expect(analysis.provenance[0]?.strategy).toBe('loose');
+    expect(analysis.provenance[0]?.inciName).toBe('Simmondsia Chinensis Seed Oil');
+  });
+
+  it('keeps the raw text alongside the name it resolved to', () => {
+    const analysis = analyseNames(['Lilial'], INDEX, RULES, { skinType: null });
+    expect(analysis.provenance[0]?.rawText).toBe('Lilial');
+    expect(analysis.provenance[0]?.inciName).toBe('2-(4-tert-butylbenzyl) propionaldehyde');
+  });
+
+  it('does not let a weaker key shadow another ingredient exact name', () => {
+    const index = buildIngredientIndex([
+      ingredient({ id: 'weak', inciName: 'Something (Water) Extract' }),
+      ingredient({ id: 'strong', inciName: 'Water Extract' }),
+    ]);
+    expect(lookup(index, 'Water Extract')?.record.id).toBe('strong');
+  });
+});
+
+describe('British spelling on a label', () => {
+  it('resolves Sulphate to the Sulfate the dataset holds', () => {
+    const analysis = analyseNames(['Sodium Laureth Sulphate'], INDEX, RULES, { skinType: null });
+    expect(analysis.result.matches[0]?.inciName).toBe('Sodium Laureth Sulfate');
+    expect(analysis.provenance[0]?.strategy).toBe('exact');
+  });
+});
+
+describe('common name printed alone', () => {
+  it('resolves Cocoa Seed Butter to the binomial in the dataset', () => {
+    const analysis = analyseNames(['Cocoa Seed Butter'], INDEX, RULES, { skinType: null });
+    expect(analysis.result.matches[0]?.inciName).toBe('Theobroma Cacao (Cocoa) Seed Butter');
+    expect(analysis.provenance[0]?.strategy).toBe('common-name');
+  });
+});
+
+describe('fuzzy suggestions', () => {
+  it('are withheld unless the caller asks for them', () => {
+    const analysis = analyseNames(['Linalol'], INDEX, RULES, { skinType: null });
+    expect(analysis.suggestions).toEqual([]);
+  });
+
+  it('recover a likely OCR slip', () => {
+    const analysis = analyseNames(['Linalol'], INDEX, RULES, {
+      skinType: null,
+      suggestUnmatched: true,
+    });
+    expect(analysis.suggestions[0]?.candidate).toBe('Linalool');
+  });
+
+  // The safety property the whole design turns on.
+  it('never enter the result the scoring engine sees', () => {
+    const analysis = analyseNames(['Linalol'], INDEX, RULES, {
+      skinType: 'sensitive',
+      suggestUnmatched: true,
+    });
+    expect(analysis.suggestions.length).toBeGreaterThan(0);
+    expect(analysis.result.matches).toEqual([]);
+    expect(analysis.result.unmatched.map((u) => u.rawText)).toEqual(['Linalol']);
+    expect(score(analysis.result).tier).toBe('UnverifiedCaution');
   });
 });
