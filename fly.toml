@@ -14,6 +14,9 @@ primary_region = "jnb"        # Johannesburg is the closest Fly.io region to Ken
 [env]
   NODE_ENV = "production"
   PORT = "3001"
+  # Fly terminates TLS and forwards, so the client address arrives in a header. The
+  # rate limiter needs this or it buckets every caller under the proxy address.
+  TRUST_PROXY = "true"
 
 [http_service]
   internal_port = 3001
