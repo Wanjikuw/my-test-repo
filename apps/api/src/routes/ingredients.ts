@@ -43,9 +43,7 @@ export function findIngredients(
   context: MatchingContext,
   query: string | null,
 ): IngredientRecord[] {
-  if (query === null) {
-    return [...context.records].sort((a, b) => a.inciName.localeCompare(b.inciName));
-  }
+  if (query === null) return context.records;
 
   const needle = normaliseInciName(query);
   if (needle.length === 0) return [];
