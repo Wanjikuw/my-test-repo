@@ -20,6 +20,9 @@ export interface MatchingContext {
    * The same corpus the index was built from, kept so the lookup routes can serve exactly
    * what the matcher can resolve. Two sources would eventually disagree, and a search
    * result the analyser cannot match is worse than no search at all.
+   *
+   * Sorted by `inciName`. At glossary scale this is several thousand comparisons, which is
+   * worth paying once per load rather than on every unfiltered listing request.
    */
   records: IngredientRecord[];
   rules: SensitivityRule[];
@@ -88,6 +91,11 @@ async function refresh(): Promise<MatchingContext> {
 
   const records = collateRecords(rows as JoinedRow[]);
   const rules = (await db.select().from(skinTypeSensitivity)) as SensitivityRule[];
+
+  // Sorted here, once. It gives the unfiltered listing its order for free, and it settles
+  // which record wins when two sources derive the same key by name instead of by whichever
+  // row Postgres happened to return first.
+  records.sort((a, b) => a.inciName.localeCompare(b.inciName));
 
   return {
     index: buildIngredientIndex(records),

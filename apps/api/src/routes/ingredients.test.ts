@@ -5,14 +5,15 @@ import { buildIngredientIndex, type IngredientRecord } from '../matching/matcher
 
 const SLS_ID = '11111111-1111-4111-8111-111111111111';
 
+// Ordered as the context guarantees: `refresh` sorts by inciName before the routes see it.
 const records: IngredientRecord[] = [
   {
-    id: SLS_ID,
-    inciName: 'Sodium Lauryl Sulfate',
-    aliases: ['SLS'],
+    id: '33333333-3333-4333-8333-333333333333',
+    inciName: 'Aqua',
+    aliases: ['Water'],
     regulatoryStatus: 'none',
-    sourceCitation: 'CosIng 34992',
-    riskTags: [{ riskCategory: 'common_irritant', sourceCitation: 'Löffler & Effendy 1999' }],
+    sourceCitation: 'CosIng 75326',
+    riskTags: [],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -23,20 +24,20 @@ const records: IngredientRecord[] = [
     riskTags: [],
   },
   {
-    id: '33333333-3333-4333-8333-333333333333',
-    inciName: 'Aqua',
-    aliases: ['Water'],
-    regulatoryStatus: 'none',
-    sourceCitation: 'CosIng 75326',
-    riskTags: [],
-  },
-  {
     id: '44444444-4444-4444-8444-444444444444',
     inciName: 'Linalool',
     aliases: [],
     regulatoryStatus: 'restricted',
     sourceCitation: 'Regulation (EC) No 1223/2009, Annex III entry 84',
     riskTags: [{ riskCategory: 'fragrance_allergen', sourceCitation: 'Annex III entry 84' }],
+  },
+  {
+    id: SLS_ID,
+    inciName: 'Sodium Lauryl Sulfate',
+    aliases: ['SLS'],
+    regulatoryStatus: 'none',
+    sourceCitation: 'CosIng 34992',
+    riskTags: [{ riskCategory: 'common_irritant', sourceCitation: 'Löffler & Effendy 1999' }],
   },
 ];
 
@@ -55,7 +56,7 @@ async function server(loadContext = async () => corpus()) {
 }
 
 describe('GET /ingredients', () => {
-  it('lists the corpus alphabetically when nothing is asked for', async () => {
+  it('lists the corpus in the order the context supplies', async () => {
     const app = await server();
     const res = await app.inject({ method: 'GET', url: '/ingredients' });
 
