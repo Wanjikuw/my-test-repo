@@ -7,6 +7,9 @@ import Fastify, {
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { healthRoutes } from './routes/health';
+import { analyzeRoutes } from './routes/analyze';
+import { ingredientRoutes } from './routes/ingredients';
+import type { LoadContext } from './routes/support';
 import { captureServerError, initObservability } from './observability';
 
 export interface RateLimitSettings {
@@ -18,6 +21,8 @@ export interface ServerOptions {
   logger?: boolean;
   /** Overrides the env-derived limit. `false` disables it, for tests that need volume. */
   rateLimit?: RateLimitSettings | false;
+  /** Overrides the database-backed corpus, so the whole server can be exercised without one. */
+  loadContext?: LoadContext;
 }
 
 /**
@@ -97,7 +102,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   });
 
   await server.register(cors, { origin: resolveCorsOrigin() });
+
+  const routeOptions = options.loadContext ? { loadContext: options.loadContext } : {};
   await server.register(healthRoutes);
+  await server.register(analyzeRoutes, routeOptions);
+  await server.register(ingredientRoutes, routeOptions);
 
   return server;
 }

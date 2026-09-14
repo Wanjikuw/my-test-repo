@@ -16,6 +16,12 @@ import {
  */
 export interface MatchingContext {
   index: IngredientIndex;
+  /**
+   * The same corpus the index was built from, kept so the lookup routes can serve exactly
+   * what the matcher can resolve. Two sources would eventually disagree, and a search
+   * result the analyser cannot match is worse than no search at all.
+   */
+  records: IngredientRecord[];
   rules: SensitivityRule[];
   ingredientCount: number;
   loadedAt: Date;
@@ -85,6 +91,7 @@ async function refresh(): Promise<MatchingContext> {
 
   return {
     index: buildIngredientIndex(records),
+    records,
     rules,
     ingredientCount: records.length,
     loadedAt: new Date(),
