@@ -36,11 +36,11 @@ previous claims, several of which had gone stale.
 
 ### Phase 1 — what stands between here and done
 
-| #   | Item                                                                  | Evidence                             |
-| --- | --------------------------------------------------------------------- | ------------------------------------ |
-| 1.1 | 3 `preservative_sensitizer` tags cite `CITATION INCOMPLETE`           | ✅ closed 14 Sep — rubric §6 #4      |
-| 1.2 | Corrigendum `32023R1545R(02)` never reconciled against the 81 entries | ✅ closed 14 Sep — rubric §6 #2      |
-| 1.3 | No benign ingredient is in the corpus, so **`Safe` is unreachable**   | 🔴 open — measured 14 Sep, see below |
+| #   | Item                                                                  | Evidence                                  |
+| --- | --------------------------------------------------------------------- | ----------------------------------------- |
+| 1.1 | 3 `preservative_sensitizer` tags cite `CITATION INCOMPLETE`           | ✅ closed 14 Sep — rubric §6 #4           |
+| 1.2 | Corrigendum `32023R1545R(02)` never reconciled against the 81 entries | ✅ closed 14 Sep — rubric §6 #2           |
+| 1.3 | `Safe` was unreachable: the corpus held no benign ingredient          | 🟡 reachable now — ceiling measured below |
 
 **Closing 1.1 found a scoring error, not just a missing footnote.** Quaternium-15 was
 carrying `regulatory_status = none`. It has been struck from Annex V and added to Annex II
@@ -59,17 +59,38 @@ unrecognised. All are now seeded and verified resolving against the live databas
 versioned in the repo but unreachable from it. Both are now upserts; the re-run rewrote
 all 104 rows.
 
-**1.3 is what remains, and it is the one that matters.** All 140 rows are risk-bearing or
-prohibited. A real label names water, glycerin and emollients we hold no record of, rule 7
-floors anything unrecognised at `UnverifiedCaution`, and so no product can ever score
-`Safe`. Measured on the live corpus via `POST /analyze`:
+### 1.3 — `Safe` now reaches, and the ceiling is measured
+
+7,589 identity-only rows were seeded from the EU Glossary (Decision 96/335/EC). They carry
+no risk tag and `regulatory_status = none`, which is the point: a recognised-but-
+unremarkable ingredient is a different fact from an unrecognised one, and the dataset had
+no way to say so. Measured over 1,299 real labels carrying 45,454 printed names:
+
+|                                      | Before | After      |
+| ------------------------------------ | ------ | ---------- |
+| label names the corpus can read      | 4.8 %  | **67.0 %** |
+| median unknown names per label       | 31     | **10**     |
+| distinct unknown names               | 5,390  | 3,791      |
+| cited entries shadowed by the import | —      | **0**      |
+
+And it works end to end, which it never had before:
 
 ```
-Aqua, Linalool, Limonene, Butylphenyl Methylpropional,
-Simmondsia Chinensis (Jojoba) Seed Oil, 1,2-Hexanediol
-
-unmatched: Aqua | Simmondsia Chinensis (Jojoba) Seed Oil | 1,2-Hexanediol
+Aqua, Glycerin, Tocopherol, Xanthan Gum   ->  Safe
+Aqua, Glycerin, Quaternium-15            ->  Avoid
 ```
+
+**The ceiling.** `Safe` needs every name on a label to resolve, so a 35-ingredient label
+needs near-total identity coverage and only 1 of 1,299 labels currently clears it. Closing
+the rest needs 3,791 more names, and **the Glossary is exhausted — exactly one unresolved
+name is still in it.** The remainder have no citable identity source in this project, and
+inventing them would cost the per-entry citation the whole methodology rests on. That is a
+quantified limit of a citation-first approach, not a to-do.
+
+**The cheapest remaining win is aliases, not identities.** The top unresolved names are
+`water` (1,011 of 1,299 labels) and `fragrance` (357) — and the corpus already holds `Aqua`
+and `Parfum`. Those are common-name synonyms, which rubric Section 4.1 says belong in
+`aliases`. A small cited synonym set would move more labels than thousands more identities.
 
 The rubric defines four tiers and the dataset can currently produce three of them.
 
@@ -182,7 +203,7 @@ Counts below re-measured against the live database on 2026-09-14.
 
 | Table                   | Rows      | Note                                                             |
 | ----------------------- | --------- | ---------------------------------------------------------------- |
-| `ingredients`           | **140**   | 84 Annex III + 36 Annex II + 20 curated                          |
+| `ingredients`           | **7,729** | 140 cited risk/prohibition rows + 7,589 Glossary identities      |
 | `ingredient_risk_tags`  | **104**   | 81 fragrance, 14 comedogenic, 3 each irritant/photo/preservative |
 | `products`              | **1,489** | Open Beauty Facts, skincare filter                               |
 | `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5     |
@@ -193,17 +214,20 @@ model against a real database:
 
 | Status                    | Count |
 | ------------------------- | ----- |
+| `none`                    | 7,606 |
 | `restricted`              | 86    |
 | `prohibited_as_fragrance` | 32    |
-| `none`                    | 17    |
 | `prohibited`              | 5     |
 
 Two invariants were asserted post-seed: **36 ingredients carry no risk tag** and **0 risk
-tags have an empty citation**. Both needed restating on 14 Sep. The untagged set is the
-_bulk-imported_ Annex II list, not the Annex II set as such — Quaternium-15 is an Annex II
-substance that is also a documented sensitiser, so it is both `prohibited` and tagged. And
-the citation invariant was weaker than it read: three citations were present but said
-`CITATION INCOMPLETE`. A test now rejects any citation that admits it is missing.
+tags have an empty citation**. Both needed restating on 14 Sep. The untagged set is no
+longer the Annex II list at all — 7,589 Glossary identities are untagged by design, and
+Quaternium-15 is an Annex II substance that is also a documented sensitiser, so it is both
+`prohibited` and tagged. The invariant that holds and is now tested is narrower: **no
+Glossary-sourced row carries a risk tag**, because the Glossary is an identity source and
+never a risk one. The citation invariant was also weaker than it read — three citations
+were present but said `CITATION INCOMPLETE`. A test now rejects any citation that admits it
+is missing.
 
 ### Dataset provenance
 
