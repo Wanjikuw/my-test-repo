@@ -27,6 +27,22 @@ describe('parseIngredientList', () => {
     ]);
   });
 
+  // A name may legitimately end in a digit. Colour indices are printed in runs, so
+  // treating a digit on one side as reason enough to keep a comma merged every shade on
+  // the label into a single unmatchable name.
+  it('still splits when only one side of the comma is a digit', () => {
+    expect(parseIngredientList('CI 77491, CI 77492, CI 77499')).toEqual([
+      'CI 77491',
+      'CI 77492',
+      'CI 77499',
+    ]);
+    expect(parseIngredientList('Aqua, 1,2-Hexanediol, CI 77891')).toEqual([
+      'Aqua',
+      '1,2-Hexanediol',
+      'CI 77891',
+    ]);
+  });
+
   it('accepts newlines and semicolons as separators', () => {
     expect(parseIngredientList('Aqua\nGlycerin; Squalane')).toEqual([
       'Aqua',
