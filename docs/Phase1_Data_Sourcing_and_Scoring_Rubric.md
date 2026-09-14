@@ -584,6 +584,48 @@ been transcribed, reviewed and committed while the database kept the old citatio
 indefinitely. Both writes are now upserts over the columns the seed file owns, and the
 re-run rewrote all 104 rows.
 
+**A tenth item, found by measurement rather than by reading: `Safe` could not occur.**
+Section 4.2 defines four tiers, and rule 7 floors any unrecognised name at
+`UnverifiedCaution`. With a corpus of nothing but risk-bearing and prohibited substances,
+every ordinary label named water and emollients we held no record of, so the top tier was
+unreachable — measured at **0 of 1,299** real labels, with a median of **31** unknown names
+per label.
+
+The fix is an identity layer: 7,589 rows seeded from the Glossary, carrying no risk tag and
+`regulatory_status = none`. Being recognised and unremarkable is a different fact from
+being unrecognised, and the dataset previously could not express it. The Glossary is used
+strictly as Section 2d allows — identity only, never risk — and a test asserts no
+Glossary-sourced row ever carries a tag.
+
+| Measured over 1,299 labels, 45,454 printed names | Before | After      |
+| ------------------------------------------------ | ------ | ---------- |
+| label names the corpus can read                  | 4.8 %  | **67.0 %** |
+| median unknown names per label                   | 31     | **10**     |
+| cited entries shadowed by the import             | —      | **0**      |
+
+Two traps avoided while sourcing it. The Glossary is typeset in two narrow columns and the
+line breaks survive into the CSV, so **2,114 of 7,598 names** arrived carrying a mid-word
+hyphen — `ACANTHOPANAX SENTI- COSUS EXTRACT`. Seeded verbatim they would have been names no
+label will ever print. `validate-identity.ts` already folded these, which is how it reached
+59 of 62 CAS corroborations; the same fold now runs at the seeding boundary. And the names
+are stored in the capitals the source prints. The document itself gives a title-cased form
+for only 1,475 of 7,662 rows, and title-casing the rest mechanically would turn PEG, PVP
+and EDTA into words that are simply wrong. An ugly name can be fixed at render time; a
+wrong one cannot.
+
+**What remains, and why it is a limit rather than a task.** `Safe` requires every name on a
+label to resolve, so a 35-ingredient label needs near-total identity coverage. Only 1 of
+1,299 labels currently clears it, and closing the rest needs 3,791 further names — of which
+**exactly one is still in the Glossary.** The source is exhausted. The remainder have no
+citable identity source available to this project, and inventing them would forfeit the
+per-entry citation this methodology rests on. The honest statement is that a citation-first
+dataset buys defensibility at a measurable cost in recall, and this is the measurement.
+
+The cheapest remaining gain is not identity but synonymy: the largest unresolved names are
+`water` (1,011 of 1,299 labels) and `fragrance` (357), and the corpus already holds `Aqua`
+and `Parfum`. Section 4.1 puts common-name synonyms in `aliases`, and a small cited synonym
+set would move more labels than thousands of further identities.
+
 **Correction — the NORMAN cosmetics set was initially rejected too broadly.** It was first
 dismissed as an analytical-chemistry file with "no role in this system". That was wrong.
 Its `Source` column shows it derives from Decision 2006/257/EC and the SCCNFP INCI 2000
