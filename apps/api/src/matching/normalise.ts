@@ -112,11 +112,16 @@ export function commonNameVariant(raw: string): string | null {
  *
  * Separators: newlines, semicolons, and commas that are not between two digits. The
  * digit guard is what keeps `1,2-Hexanediol` in one piece.
+ *
+ * Both sides have to be digits for the guard to hold, hence the two alternatives rather
+ * than one lookaround pair. Requiring only that neither side is a digit also swallowed
+ * the comma in `CI 77491, CI 77492`, merging a colour-index run into a single name that
+ * could never match.
  */
 export function parseIngredientList(label: string): string[] {
   return label
     .replace(INVISIBLE, '')
-    .split(/(?<!\d),(?!\d)|[;\n\r]+/)
+    .split(/(?<!\d),|,(?!\d)|[;\n\r]+/)
     .map((part) => part.replace(TRAILING_NOISE, '').replace(/\s+/g, ' ').trim())
     .filter((part) => part.length > 0);
 }
