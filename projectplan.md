@@ -36,16 +36,33 @@ previous claims, several of which had gone stale.
 
 ### Phase 1 — what stands between here and done
 
-| #   | Item                                                                  | Evidence                                      |
-| --- | --------------------------------------------------------------------- | --------------------------------------------- |
-| 1.1 | 3 `preservative_sensitizer` tags cite `CITATION INCOMPLETE`           | rubric §6 #4 — the string is in the live rows |
-| 1.2 | Corrigendum `32023R1545R(02)` never reconciled against the 81 entries | rubric §6 #2                                  |
-| 1.3 | No benign ingredient is in the corpus, so **`Safe` is unreachable**   | measured 14 Sep — see below                   |
+| #   | Item                                                                  | Evidence                             |
+| --- | --------------------------------------------------------------------- | ------------------------------------ |
+| 1.1 | 3 `preservative_sensitizer` tags cite `CITATION INCOMPLETE`           | ✅ closed 14 Sep — rubric §6 #4      |
+| 1.2 | Corrigendum `32023R1545R(02)` never reconciled against the 81 entries | ✅ closed 14 Sep — rubric §6 #2      |
+| 1.3 | No benign ingredient is in the corpus, so **`Safe` is unreachable**   | 🔴 open — measured 14 Sep, see below |
 
-**1.3 is the one that matters.** All 140 rows are risk-bearing or prohibited. A real label
-names water, glycerin and emollients we hold no record of, rule 7 floors anything
-unrecognised at `UnverifiedCaution`, and so no product can ever score `Safe`. Measured on
-the live corpus via `POST /analyze`:
+**Closing 1.1 found a scoring error, not just a missing footnote.** Quaternium-15 was
+carrying `regulatory_status = none`. It has been struck from Annex V and added to Annex II
+entries 1385/1386, so a substance banned from cosmetics was being scored on its risk tag
+alone. It is now `prohibited` and rule 1 fires. Methylisothiazolinone and DMDM Hydantoin
+are now `restricted`, cited to Annex V entries 57 and 33.
+
+**Closing 1.2 found three unmatchable names.** The corrigendum (OJ L series 2025/90876)
+adds `Pelargonium Graveolens Oil`, `Pelargonium Graveolens Leaf Oil` and
+`Pogostemon Cablin Leaf Oil` as Common Ingredients Glossary names, and corrects Rose
+ketone 4 to `Damascenone`. All four were missing; a label printing any of them went
+unrecognised. All are now seeded and verified resolving against the live database.
+
+**And the seeder could not have delivered either fix.** Both of its writes used
+`onConflictDoNothing`, so a re-run after a correction changed nothing — the dataset was
+versioned in the repo but unreachable from it. Both are now upserts; the re-run rewrote
+all 104 rows.
+
+**1.3 is what remains, and it is the one that matters.** All 140 rows are risk-bearing or
+prohibited. A real label names water, glycerin and emollients we hold no record of, rule 7
+floors anything unrecognised at `UnverifiedCaution`, and so no product can ever score
+`Safe`. Measured on the live corpus via `POST /analyze`:
 
 ```
 Aqua, Linalool, Limonene, Butylphenyl Methylpropional,
@@ -148,12 +165,12 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 | Seeder refuses to revive repealed Annex III entries           | ✅                                           |
 | Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out            |
 | Butylphenyl Methylpropional in the Annex II set               | ✅ entry 1666, seeded `prohibited`           |
-| Preservative sensitizers with defensible citations            | 🔴 3 rows read `CITATION INCOMPLETE`         |
+| Preservative sensitizers with defensible citations            | ✅ Annex V entries 57 and 33; Annex II 1386  |
 | `common_irritant` / `comedogenic` / `photosensitizing` lists  | ✅ 3 / 14 / 3 seeded, cited per entry        |
 | `skin_type_sensitivity` seed data                             | ✅ 7 rows — rule 5 verified firing           |
 | CosIng ingestion route                                        | ✅ EU Glossary replaces it — rubric §6 #3    |
 | Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)        |
-| Corrigendum `32023R1545R(02)` reconciled                      | 🔴 not started — rubric §6 #2                |
+| Corrigendum `32023R1545R(02)` reconciled                      | ✅ 3 corrections applied — rubric §6 #2      |
 | A benign ingredient can be recognised                         | 🔴 corpus is risk-only, `Safe` unreachable   |
 | Dataset seeded into Supabase                                  | ✅ 140 ingredients, 104 tags, 1,489 products |
 
@@ -176,15 +193,17 @@ model against a real database:
 
 | Status                    | Count |
 | ------------------------- | ----- |
-| `restricted`              | 84    |
+| `restricted`              | 86    |
 | `prohibited_as_fragrance` | 32    |
-| `none`                    | 20    |
-| `prohibited`              | 4     |
+| `none`                    | 17    |
+| `prohibited`              | 5     |
 
-Two invariants were asserted post-seed: **36 ingredients carry no risk tag** (exactly the
-Annex II set, which must never be tagged with a risk category) and **0 risk tags have an
-empty citation**. The second invariant is weaker than it reads — three citations are
-present but say `CITATION INCOMPLETE`, which is open item 1.1 above.
+Two invariants were asserted post-seed: **36 ingredients carry no risk tag** and **0 risk
+tags have an empty citation**. Both needed restating on 14 Sep. The untagged set is the
+_bulk-imported_ Annex II list, not the Annex II set as such — Quaternium-15 is an Annex II
+substance that is also a documented sensitiser, so it is both `prohibited` and tagged. And
+the citation invariant was weaker than it read: three citations were present but said
+`CITATION INCOMPLETE`. A test now rejects any citation that admits it is missing.
 
 ### Dataset provenance
 
