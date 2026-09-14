@@ -20,10 +20,17 @@
  *             consolidated Annex III (CELEX:02009R1223). Do not add them from memory.
  *   DELETED   entries 125, 126, 158, 160-163, 165, 167, 168 are repealed — never seed.
  *
- * Corrigenda: 32023R1545R(01) (2024-08-16, Slovak only) and 32023R1545R(02)
- * (2025-11-07, language scope unstated). R(02) has NOT been checked against this
- * transcription — verify before citing the dataset as final.
+ * Corrigenda: 32023R1545R(01) (2024-08-16, Slovak only — CELLAR serves no English
+ * expression of it) and 32023R1545R(02) (OJ L series 2025/90876, 11.11.2025,
+ * ELI reg/2023/1545/corrigendum/2025-11-07). R(02) was reconciled against this
+ * transcription on 2026-09-14 and its three substantive corrections are applied below:
+ * entry 157's Rose ketone 4 is Damascenone, not Damascone; entry 364 gains the glossary
+ * names Pelargonium Graveolens Oil and Pelargonium Graveolens Leaf Oil; entry 365 gains
+ * Pogostemon Cablin Leaf Oil. Its other changes move hyphens inside chemical names,
+ * which normalisation already folds.
  */
+
+import type { RegulatoryStatus } from '@allergy-checker/shared';
 
 export type RiskCategory =
   | 'fragrance_allergen'
@@ -40,6 +47,12 @@ export type CuratedRiskEntry = {
   riskCategory: RiskCategory;
   /** Annex III reference number, or 0 where no numbered provision applies. */
   annexEntry: number;
+  /**
+   * Set only where a provision outside Annex III governs the substance. Annex III entries
+   * derive `restricted` from `annexEntry`, but an Annex V preservative or an Annex II
+   * prohibition carries no Annex III number to derive it from.
+   */
+  regulatoryStatus?: RegulatoryStatus;
   casNumbers: string[];
   ecNumbers: string[];
   sourceCitation: string;
@@ -69,6 +82,22 @@ const PRE_EXISTING = (entry: number) =>
 
 const ADDED = (entry: number) =>
   `Regulation (EC) No 1223/2009, Annex III entry ${entry}, as added by Commission Regulation (EU) 2023/1545 (OJ L 188, 27.7.2023, p. 1)`;
+
+/**
+ * Annex V is the positive list of permitted preservatives, so an entry states the
+ * conditions of use and a deletion withdraws permission altogether. Neither names a
+ * hazard, which is why these citations quote the restriction rather than claim the
+ * regulator called the substance a sensitiser.
+ *
+ * The extract carries no legend mapping its ▼M markers to regulation numbers, so the
+ * consolidated text is cited rather than the amending act — the same call made for
+ * Annex II entry 1666.
+ */
+const ANNEX_V = (entry: number) =>
+  `Regulation (EC) No 1223/2009, Annex V entry ${entry} (consolidated text, CELEX:02009R1223)`;
+
+const ANNEX_II = (entry: number) =>
+  `Regulation (EC) No 1223/2009, Annex II entry ${entry} (consolidated text, CELEX:02009R1223)`;
 
 /** Entries 2023/1545 substituted. */
 export const substitutedFragranceAllergens: CuratedRiskEntry[] = [
@@ -226,7 +255,8 @@ export const substitutedFragranceAllergens: CuratedRiskEntry[] = [
       'cis-Rose ketone 1',
       'trans-Rose ketone 1',
       'Rose ketone 4',
-      'Damascone',
+      // Corrigendum R(02): the OJ printed Damascone here, which is a different substance.
+      'Damascenone',
       'Rose ketone 3',
       'delta-Damascone',
       'trans-Rose ketone 3',
@@ -670,7 +700,7 @@ export const addedFragranceAllergens: CuratedRiskEntry[] = [
   },
   {
     inciName: 'Pelargonium Graveolens Flower Oil',
-    aliases: [],
+    aliases: ['Pelargonium Graveolens Oil', 'Pelargonium Graveolens Leaf Oil'],
     riskCategory: 'fragrance_allergen',
     annexEntry: 364,
     casNumbers: ['90082-51-2', '8000-46-2'],
@@ -679,7 +709,7 @@ export const addedFragranceAllergens: CuratedRiskEntry[] = [
   },
   {
     inciName: 'Pogostemon Cablin Oil',
-    aliases: ['Patchouli oil'],
+    aliases: ['Patchouli oil', 'Pogostemon Cablin Leaf Oil'],
     riskCategory: 'fragrance_allergen',
     annexEntry: 365,
     casNumbers: ['8014-09-3', '84238-39-1'],
@@ -1019,9 +1049,14 @@ export const repealedAnnexEntries: readonly number[] = [
 ];
 
 /**
- * Preservative sensitizers. Unlike the fragrance allergens above these are not tied to a
- * numbered provision — "FDA cosmetic ingredient guidance" is too vague to defend in the
- * report and must be replaced with a citable document per entry before Phase 5.
+ * Preservative sensitizers, each tied to the provision that governs it.
+ *
+ * Annex V states conditions of use, never the reason for them: the words "sensitising"
+ * and "allergen" appear nowhere in it. So these citations establish that a regulator
+ * restricted the substance, which is what rule 3 escalates on, and stop short of claiming
+ * the regulator named the hazard. A substance-level SCCS opinion would let the risk tag
+ * cite the hazard directly; none is held locally and the SCCS index is not machine-
+ * readable, so that upgrade is recorded in the rubric rather than guessed at here.
  */
 export const curatedPreservativeSensitizers: CuratedRiskEntry[] = [
   {
@@ -1029,30 +1064,36 @@ export const curatedPreservativeSensitizers: CuratedRiskEntry[] = [
     aliases: ['MI', 'MIT'],
     riskCategory: 'preservative_sensitizer',
     annexEntry: 0,
+    regulatoryStatus: 'restricted',
     casNumbers: ['2682-20-4'],
     ecNumbers: ['220-239-6'],
-    sourceCitation: 'FDA cosmetic ingredient guidance — CITATION INCOMPLETE, see rubric doc §6',
-    notes: 'Documented contact sensitizer, restricted concentration in leave-on products',
+    sourceCitation: `${ANNEX_V(57)} — rinse-off products only, 0,0015 %`,
+    notes:
+      'Permitted only in rinse-off products. Annex V entry 39 covers the methylchloroisothiazolinone mixture and the two entries are mutually exclusive. An ingredient list cannot show whether a product is rinse-off, so leave-on non-compliance is not decidable here.',
   },
   {
     inciName: 'DMDM Hydantoin',
     aliases: [],
     riskCategory: 'preservative_sensitizer',
     annexEntry: 0,
+    regulatoryStatus: 'restricted',
     casNumbers: ['6440-58-0'],
     ecNumbers: ['229-222-8'],
-    sourceCitation: 'FDA cosmetic ingredient guidance — CITATION INCOMPLETE, see rubric doc §6',
-    notes: 'Formaldehyde-releaser',
+    sourceCitation: `${ANNEX_V(33)} — 0,6 %; Annex V preamble point 2 requires the warning 'releases formaldehyde' above 0,001 % (10 ppm)`,
+    notes:
+      'Formaldehyde releaser. The preamble warning is the closest the regulation comes to naming the hazard, and it names formaldehyde release rather than sensitisation.',
   },
   {
     inciName: 'Quaternium-15',
-    aliases: [],
+    aliases: ['Cis-CTAC'],
     riskCategory: 'preservative_sensitizer',
     annexEntry: 0,
-    casNumbers: ['4080-31-3'],
-    ecNumbers: ['223-805-0'],
-    sourceCitation: 'FDA cosmetic ingredient guidance — CITATION INCOMPLETE, see rubric doc §6',
-    notes: 'Formaldehyde-releaser',
+    regulatoryStatus: 'prohibited',
+    casNumbers: ['4080-31-3', '51229-78-8'],
+    ecNumbers: ['223-805-0', '426-020-3'],
+    sourceCitation: ANNEX_II(1386),
+    notes:
+      'No longer a permitted preservative: the same amendment struck Annex V entry 31 and added Annex II entries 1385 and 1386, the latter naming quaternium-15 outright. The annex cites CAS 51229-78-8, the cis isomer; 4080-31-3 is the CAS the Common Ingredients Glossary carries for quaternium-15, and both are kept rather than one silently replacing the other.',
   },
 ];
 
