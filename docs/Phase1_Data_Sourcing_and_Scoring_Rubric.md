@@ -521,6 +521,69 @@ Section 2b. The denominator was exact; the numerator was 63 too high.
 **Item 1 is closed.** Entries 67-92 are seeded; products missed entirely fell from 73
 to 1. What remains is not a gap but a compliance question — see Section 2e.
 
+**Item 4 is resolved, and one of the three turned out to be a status error rather than a
+citation error.** All three rows read `FDA cosmetic ingredient guidance — CITATION
+INCOMPLETE`. The replacement is Annex V, the positive list of permitted preservatives:
+
+| Substance             | Provision                      | Condition                         | Status       |
+| --------------------- | ------------------------------ | --------------------------------- | ------------ |
+| Methylisothiazolinone | Annex V entry 57               | rinse-off only, 0,0015 %          | `restricted` |
+| DMDM Hydantoin        | Annex V entry 33               | 0,6 %; preamble point 2 labelling | `restricted` |
+| Quaternium-15         | **Annex II entries 1385/1386** | struck from Annex V entry 31      | `prohibited` |
+
+**Quaternium-15 was not merely uncited — it was scored wrongly.** Annex V is a positive
+list, so removal withdraws permission outright. The consolidated extract shows entry 31
+as `▼M32 —————`, a deletion, and the same ▼M32 marker adds Annex II entries 1385 and
+1386, the second naming quaternium-15 explicitly. It had been carrying `regulatory_status
+= none`, so a product listing a substance banned from cosmetics scored on its risk tag
+alone. It is now `prohibited` and rule 1 fires.
+
+The annex cites CAS 51229-78-8, the cis isomer; the Common Ingredients Glossary carries
+4080-31-3 for quaternium-15. Both are kept — replacing one with the other would have
+asserted an identity neither source states.
+
+**What this does not establish.** Annex V gives conditions of use and never a reason:
+the strings "sensitis", "sensitiz" and "allerg" appear nowhere in it. These citations
+therefore support _a regulator restricted this substance_, which is what rule 3 escalates
+on, and stop short of _a regulator called it a sensitiser_. DMDM Hydantoin comes closest,
+because preamble point 2 requires a `releases formaldehyde` warning above 0,001 %, which
+names a mechanism. Closing the gap properly needs a substance-level SCCS opinion; the two
+SCCS PDFs in the repo are SCCS/1648/22 (Hydroxyapatite (nano)) and SCCS/1647/22 (the
+Notes of Guidance already rejected in Section 2c), and the SCCS opinion index is not
+machine-readable. Recorded as a follow-up rather than guessed at.
+
+**Item 2 is resolved.** `32023R1545R(01)` is Slovak only — CELLAR returns 404 for an
+English expression of it, which corroborates the note in `curated-risk-data.ts`.
+`32023R1545R(02)` is OJ L series 2025/90876 of 11.11.2025
+(ELI `reg/2023/1545/corrigendum/2025-11-07`). It makes three substantive corrections,
+all now applied and under test:
+
+| Entry | Correction                                                                          |
+| ----- | ----------------------------------------------------------------------------------- |
+| 157   | Rose ketone 4 is **Damascenone**, not Damascone                                     |
+| 364   | adds glossary names `Pelargonium Graveolens Oil`, `Pelargonium Graveolens Leaf Oil` |
+| 365   | adds glossary name `Pogostemon Cablin Leaf Oil`                                     |
+
+Its remaining edits move hyphens inside chemical names, which normalisation already folds.
+
+The three added names are not cosmetic. Each is a Common Ingredients Glossary name a
+label may lawfully print, and each was absent from the transcription, so each was
+unmatchable — a product naming `Pogostemon Cablin Leaf Oil` would have been reported as
+an unrecognised ingredient rather than as an Annex III fragrance allergen.
+
+EUR-Lex itself is unusable from a script: every request returns HTTP 202 with a zero-byte
+body. The Publications Office CELLAR service at `publications.europa.eu/resource/celex/`
+serves the same documents with an `Accept: application/xhtml+xml` header, and is how both
+corrigenda were retrieved.
+
+**A defect this uncovered, which Section 5 had assumed away.** Section 5 says the dataset
+is versioned with the repo. It was not reachable from the repo: `seed-curated-risk-data.ts`
+used `onConflictDoNothing` for both the ingredient and the risk-tag insert, so a re-run
+after a correction inserted nothing and changed nothing. The corrigendum above could have
+been transcribed, reviewed and committed while the database kept the old citations
+indefinitely. Both writes are now upserts over the columns the seed file owns, and the
+re-run rewrote all 104 rows.
+
 **Correction — the NORMAN cosmetics set was initially rejected too broadly.** It was first
 dismissed as an analytical-chemistry file with "no role in this system". That was wrong.
 Its `Source` column shows it derives from Decision 2006/257/EC and the SCCNFP INCI 2000
