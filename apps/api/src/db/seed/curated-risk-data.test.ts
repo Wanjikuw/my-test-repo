@@ -99,6 +99,88 @@ describe('curated Annex III fragrance allergen dataset', () => {
   });
 });
 
+describe('citation quality across every curated list', () => {
+  const everyEntry = [
+    ...curatedFragranceAllergens,
+    ...curatedPreservativeSensitizers,
+    ...curatedComedogenicIngredients,
+    ...curatedCommonIrritants,
+    ...curatedPhotosensitizers,
+  ];
+
+  // Three preservative rows shipped for weeks reading "CITATION INCOMPLETE". A non-empty
+  // citation was the only thing asserted, and a confession of absence passes that.
+  it('never admits in the citation that the citation is missing', () => {
+    const unfinished = everyEntry.filter((e) =>
+      /incomplete|placeholder|\bTODO\b|\bTBD\b/i.test(e.sourceCitation),
+    );
+    expect(unfinished.map((e) => e.inciName)).toEqual([]);
+  });
+});
+
+describe('curated preservative sensitizer dataset', () => {
+  const byName = (name: string) => {
+    const entry = curatedPreservativeSensitizers.find((e) => e.inciName === name);
+    if (!entry) throw new Error(`missing preservative entry: ${name}`);
+    return entry;
+  };
+
+  it('cites a numbered provision of an annex for every entry', () => {
+    for (const entry of curatedPreservativeSensitizers) {
+      expect(entry.sourceCitation).toMatch(/Annex (II|V) entry \d+/);
+      expect(entry.riskCategory).toBe('preservative_sensitizer');
+    }
+  });
+
+  // Annex V is a positive list, so deletion from it withdraws permission rather than
+  // merely tightening a limit. Quaternium-15 left Annex V and entered Annex II, and
+  // scoring it as an untagged curiosity would have understated an outright ban.
+  it('treats Quaternium-15 as prohibited, not merely as a sensitizer', () => {
+    const entry = byName('Quaternium-15');
+    expect(entry.regulatoryStatus).toBe('prohibited');
+    expect(entry.sourceCitation).toContain('Annex II entry 1386');
+  });
+
+  it('keeps both CAS numbers for Quaternium-15, since the annex and the glossary differ', () => {
+    expect(byName('Quaternium-15').casNumbers).toEqual(['4080-31-3', '51229-78-8']);
+  });
+
+  it('records the Annex V restriction on the two that remain permitted', () => {
+    expect(byName('Methylisothiazolinone').regulatoryStatus).toBe('restricted');
+    expect(byName('Methylisothiazolinone').sourceCitation).toContain('0,0015 %');
+    expect(byName('DMDM Hydantoin').regulatoryStatus).toBe('restricted');
+    expect(byName('DMDM Hydantoin').sourceCitation).toContain('releases formaldehyde');
+  });
+
+  // Annex V states conditions of use and never uses the word. Claiming otherwise would
+  // put an unsourced hazard behind an escalation that can reach Avoid.
+  it('does not claim Annex V called these substances sensitizers', () => {
+    for (const entry of curatedPreservativeSensitizers) {
+      expect(entry.sourceCitation).not.toMatch(/sensiti[sz]/i);
+    }
+  });
+});
+
+describe('corrigendum 32023R1545R(02)', () => {
+  const aliasesOf = (name: string) =>
+    curatedFragranceAllergens.find((e) => e.inciName === name)?.aliases ?? [];
+
+  // Each of these is a Common Ingredients Glossary name a label may legally print, and
+  // each was absent until the corrigendum was reconciled, so each was an unmatchable name.
+  it('carries the glossary names it added to entries 364 and 365', () => {
+    expect(aliasesOf('Pelargonium Graveolens Flower Oil')).toContain('Pelargonium Graveolens Oil');
+    expect(aliasesOf('Pelargonium Graveolens Flower Oil')).toContain(
+      'Pelargonium Graveolens Leaf Oil',
+    );
+    expect(aliasesOf('Pogostemon Cablin Oil')).toContain('Pogostemon Cablin Leaf Oil');
+  });
+
+  it('names Rose ketone 4 as Damascenone, which is what it corrected', () => {
+    expect(aliasesOf('Rose Ketones')).toContain('Damascenone');
+    expect(aliasesOf('Rose Ketones')).not.toContain('Damascone');
+  });
+});
+
 describe('curated comedogenic dataset', () => {
   it('cites a named study with a PMID for every entry', () => {
     for (const entry of curatedComedogenicIngredients) {
