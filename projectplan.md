@@ -11,21 +11,62 @@ evidence trail that the iterative methodology was actually followed, not just cl
 
 ## Status at a glance
 
-| Phase                                   | Window          | Status         |
-| --------------------------------------- | --------------- | -------------- |
-| 0 — Foundations & environment           | Aug 4 – Aug 6   | 🟡 Partial     |
-| 1 — Data foundation & scoring rubric    | Aug 6 – Aug 17  | 🟡 In progress |
-| 2 — System design                       | Aug 18 – Aug 24 | ⬜ Not started |
-| 3 — Auth & skin profile                 | Aug 25 – Aug 31 | ⬜ Not started |
-| 4 — Ingredient input (manual + OCR)     | Sep 1 – Sep 7   | ⬜ Not started |
-| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | 🟡 Engine done |
-| 6 — Recommendations, history, feedback  | Sep 15 – Sep 19 | ⬜ Not started |
-| 7 — Testing cycle 1 (QA + usability)    | Sep 20 – Sep 24 | ⬜ Not started |
-| 8 — Refinement                          | Sep 25 – Sep 27 | ⬜ Not started |
-| 9 — Testing cycle 2 + polish            | Sep 28 – Sep 29 | ⬜ Not started |
-| 10 — Docs, deploy hardening, submission | Sep 30          | ⬜ Not started |
+| Phase                                   | Window          | Status          |
+| --------------------------------------- | --------------- | --------------- |
+| 0 — Foundations & environment           | Aug 4 – Aug 6   | 🟡 Partial      |
+| 1 — Data foundation & scoring rubric    | Aug 6 – Aug 17  | 🟡 In progress  |
+| 2 — System design                       | Aug 18 – Aug 24 | ⬜ Not started  |
+| 3 — Auth & skin profile                 | Aug 25 – Aug 31 | ⬜ Not started  |
+| 4 — Ingredient input (manual + OCR)     | Sep 1 – Sep 7   | ⬜ Not started  |
+| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | 🟡 Engine + API |
+| 6 — Recommendations, history, feedback  | Sep 15 – Sep 19 | ⬜ Not started  |
+| 7 — Testing cycle 1 (QA + usability)    | Sep 20 – Sep 24 | ⬜ Not started  |
+| 8 — Refinement                          | Sep 25 – Sep 27 | ⬜ Not started  |
+| 9 — Testing cycle 2 + polish            | Sep 28 – Sep 29 | ⬜ Not started  |
+| 10 — Docs, deploy hardening, submission | Sep 30          | ⬜ Not started  |
 
 Legend: ✅ done · 🟡 in progress / partial · 🔴 blocked · ⬜ not started
+
+---
+
+## Outstanding — reviewed 14 Sep 2026
+
+Written down so the next session starts from the truth rather than from this file's
+previous claims, several of which had gone stale.
+
+### Phase 1 — what stands between here and done
+
+| #   | Item                                                                  | Evidence                                      |
+| --- | --------------------------------------------------------------------- | --------------------------------------------- |
+| 1.1 | 3 `preservative_sensitizer` tags cite `CITATION INCOMPLETE`           | rubric §6 #4 — the string is in the live rows |
+| 1.2 | Corrigendum `32023R1545R(02)` never reconciled against the 81 entries | rubric §6 #2                                  |
+| 1.3 | No benign ingredient is in the corpus, so **`Safe` is unreachable**   | measured 14 Sep — see below                   |
+
+**1.3 is the one that matters.** All 140 rows are risk-bearing or prohibited. A real label
+names water, glycerin and emollients we hold no record of, rule 7 floors anything
+unrecognised at `UnverifiedCaution`, and so no product can ever score `Safe`. Measured on
+the live corpus via `POST /analyze`:
+
+```
+Aqua, Linalool, Limonene, Butylphenyl Methylpropional,
+Simmondsia Chinensis (Jojoba) Seed Oil, 1,2-Hexanediol
+
+unmatched: Aqua | Simmondsia Chinensis (Jojoba) Seed Oil | 1,2-Hexanediol
+```
+
+The rubric defines four tiers and the dataset can currently produce three of them.
+
+### Evidence-trail hygiene
+
+| Item                                                              | State                                         |
+| ----------------------------------------------------------------- | --------------------------------------------- |
+| Commit log below stops at `82aac71`                               | 10 commits unrecorded — phases need assigning |
+| Phase 0 deploy targets (Fly, Vercel, Upstash) still unprovisioned | unchanged since 6 Aug                         |
+
+### Not started, and overdue
+
+Phases 2, 3 and 4 have no code. Phase 5 has an engine and an HTTP surface but nothing
+consumes it: `apps/web` is still the Next.js starter page. 16 days remain.
 
 ---
 
@@ -95,51 +136,55 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 
 **Deliverable:** versioned, seeded `ingredients` dataset + written scoring rubric.
 
-| Task                                                          | Status                                      |
-| ------------------------------------------------------------- | ------------------------------------------- |
-| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`                 |
-| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                          |
-| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                              |
-| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (9 cases)                    |
-| EU Annex III fragrance allergens transcribed                  | ✅ **81 entries**, cited per entry          |
-| Annex II prohibition modelled as `regulatory_status`          | ✅ rubric §3.3 — not a 6th risk category    |
-| Dataset invariants under test                                 | ✅ 29 tests, all passing                    |
-| Seeder refuses to revive repealed Annex III entries           | ✅                                          |
-| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out           |
-| Butylphenyl Methylpropional in the Annex II set               | 🔴 49 of 57 delisted hits — rubric §6 #8    |
-| Preservative sensitizers with defensible citations            | 🔴 placeholder citations only               |
-| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ⬜ not started                              |
-| `skin_type_sensitivity` seed data                             | ✅ 7 rows — rule 5 verified firing          |
-| CosIng ingestion route                                        | ⬜ no bulk export found                     |
-| Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)       |
-| Dataset seeded into Supabase                                  | ✅ 119 ingredients, 84 tags, 1,489 products |
+| Task                                                          | Status                                       |
+| ------------------------------------------------------------- | -------------------------------------------- |
+| Scoring rubric written as a spec before engine code           | ✅ `docs/Phase1_…Rubric.md`                  |
+| Risk taxonomy fixed (5 categories, mirrored in DB enum)       | ✅                                           |
+| Tier model + precedence decided (rule tree, not weighted sum) | ✅ rubric §4.2                               |
+| Worked examples written for Phase 5 tests                     | ✅ rubric §4.3 (9 cases)                     |
+| EU Annex III fragrance allergens transcribed                  | ✅ **81 entries**, cited per entry           |
+| Annex II prohibition modelled as `regulatory_status`          | ✅ rubric §3.3 — not a 6th risk category     |
+| Dataset invariants under test                                 | ✅ 29 tests, all passing                     |
+| Seeder refuses to revive repealed Annex III entries           | ✅                                           |
+| Annex III entries 67–92 (Linalool, Geraniol, Eugenol, …)      | ✅ 19 seeded; 68/79/83 struck out            |
+| Butylphenyl Methylpropional in the Annex II set               | ✅ entry 1666, seeded `prohibited`           |
+| Preservative sensitizers with defensible citations            | 🔴 3 rows read `CITATION INCOMPLETE`         |
+| `common_irritant` / `comedogenic` / `photosensitizing` lists  | ✅ 3 / 14 / 3 seeded, cited per entry        |
+| `skin_type_sensitivity` seed data                             | ✅ 7 rows — rule 5 verified firing           |
+| CosIng ingestion route                                        | ✅ EU Glossary replaces it — rubric §6 #3    |
+| Open Beauty Facts import re-verified                          | ✅ measured 1,489/64,237 (was ~1,552)        |
+| Corrigendum `32023R1545R(02)` reconciled                      | 🔴 not started — rubric §6 #2                |
+| A benign ingredient can be recognised                         | 🔴 corpus is risk-only, `Safe` unreachable   |
+| Dataset seeded into Supabase                                  | ✅ 140 ingredients, 104 tags, 1,489 products |
 
 ### Seeded database state
 
 Seeded into Supabase `bjzzivckgjglkxlywbut` on 2026-09-13, after RLS was enabled and its
 five read policies were applied — so no row has ever existed in an unprotected table.
+Counts below re-measured against the live database on 2026-09-14.
 
-| Table                   | Rows      | Note                                                         |
-| ----------------------- | --------- | ------------------------------------------------------------ |
-| `ingredients`           | **119**   | 81 Annex III + 3 preservatives + 35 Annex II                 |
-| `ingredient_risk_tags`  | **84**    | 81 `fragrance_allergen`, 3 `preservative_sensitizer`         |
-| `products`              | **1,489** | Open Beauty Facts, skincare filter                           |
-| `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5 |
-| `skin_type_sensitivity` | **7**     | Seeded; 3 rows can fire today, 4 await open item 5           |
+| Table                   | Rows      | Note                                                             |
+| ----------------------- | --------- | ---------------------------------------------------------------- |
+| `ingredients`           | **140**   | 84 Annex III + 36 Annex II + 20 curated                          |
+| `ingredient_risk_tags`  | **104**   | 81 fragrance, 14 comedogenic, 3 each irritant/photo/preservative |
+| `products`              | **1,489** | Open Beauty Facts, skincare filter                               |
+| `product_ingredients`   | 0         | By design — linking product text to ingredients is Phase 4/5     |
+| `skin_type_sensitivity` | **7**     | All 7 can fire; every category they name has tagged rows         |
 
 `regulatory_status` distribution, which is the first end-to-end proof of the Section 3.3
 model against a real database:
 
 | Status                    | Count |
 | ------------------------- | ----- |
-| `restricted`              | 81    |
+| `restricted`              | 84    |
 | `prohibited_as_fragrance` | 32    |
-| `prohibited`              | 3     |
-| `none`                    | 3     |
+| `none`                    | 20    |
+| `prohibited`              | 4     |
 
-Two invariants were asserted post-seed: **35 ingredients carry no risk tag** (exactly the
+Two invariants were asserted post-seed: **36 ingredients carry no risk tag** (exactly the
 Annex II set, which must never be tagged with a risk category) and **0 risk tags have an
-empty citation**.
+empty citation**. The second invariant is weaker than it reads — three citations are
+present but say `CITATION INCOMPLETE`, which is open item 1.1 above.
 
 ### Dataset provenance
 
