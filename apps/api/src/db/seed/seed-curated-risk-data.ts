@@ -12,7 +12,7 @@
  *
  * Usage: tsx src/db/seed/seed-curated-risk-data.ts
  */
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { ingredients, ingredientRiskTags } from '../schema';
 import {
@@ -78,14 +78,27 @@ async function main() {
         batch.map((entry) => ({
           inciName: entry.inciName,
           aliases: entry.aliases,
-          // Annex III entries are restricted. The preservative, comedogenic and irritant
-          // entries carry annexEntry 0 because no numbered provision applies to them, so
-          // they get no regulatory status.
-          regulatoryStatus: entry.annexEntry > 0 ? ('restricted' as const) : ('none' as const),
+          // Annex III entries are restricted by virtue of their entry number. Anything
+          // governed by another annex has to say so: Annex V and Annex II carry their own
+          // numbering, and a comedogenic or irritant entry has no provision at all.
+          regulatoryStatus:
+            entry.regulatoryStatus ??
+            (entry.annexEntry > 0 ? ('restricted' as const) : ('none' as const)),
           sourceCitation: entry.sourceCitation,
         })),
       )
-      .onConflictDoNothing({ target: ingredients.inciName })
+      // Was onConflictDoNothing, which made the seeder incapable of carrying a correction:
+      // a corrigendum could be transcribed, committed and reviewed, and the row it fixed
+      // would keep its old citation forever. The repo is the source of truth per rubric §5,
+      // so it overwrites the columns it owns and leaves the rest alone.
+      .onConflictDoUpdate({
+        target: ingredients.inciName,
+        set: {
+          aliases: sql`excluded.aliases`,
+          regulatoryStatus: sql`excluded.regulatory_status`,
+          sourceCitation: sql`excluded.source_citation`,
+        },
+      })
       .returning({ id: ingredients.id });
     insertedCount += rows.length;
   }
@@ -126,7 +139,13 @@ async function main() {
     const rows = await db
       .insert(ingredientRiskTags)
       .values(batch)
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [ingredientRiskTags.ingredientId, ingredientRiskTags.riskCategory],
+        set: {
+          sourceCitation: sql`excluded.source_citation`,
+          notes: sql`excluded.notes`,
+        },
+      })
       .returning({ id: ingredientRiskTags.id });
     tagCount += rows.length;
   }
@@ -134,8 +153,8 @@ async function main() {
   const statements = chunk(entries, CHUNK_SIZE).length * 2 + chunk(tagRows, CHUNK_SIZE).length;
   console.log(
     `Done. ${entries.length} curated entries processed in ${statements} statements: ` +
-      `${insertedCount} ingredients inserted, ${entries.length - insertedCount} already present, ` +
-      `${tagCount} risk tags inserted.`,
+      `${insertedCount} ingredient rows written, ${tagCount} risk tags written. ` +
+      `Writes are upserts, so a re-run restates every row from this repo.`,
   );
 }
 
