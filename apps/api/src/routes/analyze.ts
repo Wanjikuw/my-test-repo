@@ -1,14 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  coverageOf,
   score,
   SkinType,
   SunExposure,
-  type IngredientMatch,
-  type ScoredResult,
+  type AnalyzeResponse,
+  type MatchedIngredient,
+  type Suggestion,
 } from '@allergy-checker/shared';
 import type { MatchingContext } from '../matching/context';
-import { analyseNames, type LabelAnalysis, type MatchStrategy } from '../matching/matcher';
+import { analyseNames, type LabelAnalysis } from '../matching/matcher';
 import { parseIngredientList } from '../matching/normalise';
 import { badRequest, loadContextLazily, parseOrThrow, type LoadContext } from './support';
 
@@ -46,30 +48,6 @@ const AnalyzeBody = z
 
 export type AnalyzeBody = z.infer<typeof AnalyzeBody>;
 
-export interface MatchedIngredient extends IngredientMatch {
-  /** The text as printed on the label, which is often not the INCI name it resolved to. */
-  matchedFrom: string;
-  strategy: MatchStrategy;
-}
-
-export interface UnmatchedIngredientResponse {
-  rawText: string;
-  /** Near-misses, nearest first. Advisory only — these never reached the scoring rules. */
-  suggestions: { candidate: string; distance: number }[];
-}
-
-export interface AnalyzeResponse {
-  tier: ScoredResult['tier'];
-  explanations: ScoredResult['explanations'];
-  profile: {
-    skinType: z.infer<typeof SkinType> | null;
-    sunExposure: z.infer<typeof SunExposure> | null;
-  };
-  matched: MatchedIngredient[];
-  unmatched: UnmatchedIngredientResponse[];
-  corpus: { ingredientCount: number; loadedAt: string };
-}
-
 /**
  * Provenance and suggestions are kept out of `MatchResult` so that no fuzzy guess can
  * reach the scoring rules. They are folded back in here, where the only thing at stake is
@@ -82,7 +60,7 @@ export function buildAnalyzeResponse(
   const scored = score(analysis.result);
   const originByName = new Map(analysis.provenance.map((entry) => [entry.inciName, entry]));
 
-  const suggestionsByRawText = new Map<string, { candidate: string; distance: number }[]>();
+  const suggestionsByRawText = new Map<string, Suggestion[]>();
   for (const suggestion of analysis.suggestions) {
     const existing = suggestionsByRawText.get(suggestion.rawText);
     const entry = { candidate: suggestion.candidate, distance: suggestion.distance };
@@ -97,7 +75,7 @@ export function buildAnalyzeResponse(
       skinType: analysis.result.skinType,
       sunExposure: analysis.result.sunExposure,
     },
-    matched: analysis.result.matches.map((match) => {
+    matched: analysis.result.matches.map((match): MatchedIngredient => {
       const origin = originByName.get(match.inciName);
       return {
         ...match,
@@ -109,6 +87,7 @@ export function buildAnalyzeResponse(
       rawText: entry.rawText,
       suggestions: suggestionsByRawText.get(entry.rawText) ?? [],
     })),
+    coverage: coverageOf(analysis.result.matches.length, analysis.result.unmatched.length),
     corpus: {
       ingredientCount: context.ingredientCount,
       loadedAt: context.loadedAt.toISOString(),
