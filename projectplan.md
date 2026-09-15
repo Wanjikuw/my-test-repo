@@ -11,25 +11,25 @@ evidence trail that the iterative methodology was actually followed, not just cl
 
 ## Status at a glance
 
-| Phase                                   | Window          | Status          |
-| --------------------------------------- | --------------- | --------------- |
-| 0 — Foundations & environment           | Aug 4 – Aug 6   | 🟡 Partial      |
-| 1 — Data foundation & scoring rubric    | Aug 6 – Aug 17  | 🟡 In progress  |
-| 2 — System design                       | Aug 18 – Aug 24 | ⬜ Not started  |
-| 3 — Auth & skin profile                 | Aug 25 – Aug 31 | ⬜ Not started  |
-| 4 — Ingredient input (manual + OCR)     | Sep 1 – Sep 7   | ⬜ Not started  |
-| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | 🟡 Engine + API |
-| 6 — Recommendations, history, feedback  | Sep 15 – Sep 19 | ⬜ Not started  |
-| 7 — Testing cycle 1 (QA + usability)    | Sep 20 – Sep 24 | ⬜ Not started  |
-| 8 — Refinement                          | Sep 25 – Sep 27 | ⬜ Not started  |
-| 9 — Testing cycle 2 + polish            | Sep 28 – Sep 29 | ⬜ Not started  |
-| 10 — Docs, deploy hardening, submission | Sep 30          | ⬜ Not started  |
+| Phase                                   | Window          | Status              |
+| --------------------------------------- | --------------- | ------------------- |
+| 0 — Foundations & environment           | Aug 4 – Aug 6   | 🟡 Partial          |
+| 1 — Data foundation & scoring rubric    | Aug 6 – Aug 17  | 🟡 Bar the synonyms |
+| 2 — System design                       | Aug 18 – Aug 24 | ⬜ Not started      |
+| 3 — Auth & skin profile                 | Aug 25 – Aug 31 | ⬜ Not started      |
+| 4 — Ingredient input (manual + OCR)     | Sep 1 – Sep 7   | ⬜ Not started      |
+| 5 — Analysis & scoring engine           | Sep 8 – Sep 14  | 🟡 Engine + API     |
+| 6 — Recommendations, history, feedback  | Sep 15 – Sep 19 | ⬜ Not started      |
+| 7 — Testing cycle 1 (QA + usability)    | Sep 20 – Sep 24 | ⬜ Not started      |
+| 8 — Refinement                          | Sep 25 – Sep 27 | ⬜ Not started      |
+| 9 — Testing cycle 2 + polish            | Sep 28 – Sep 29 | ⬜ Not started      |
+| 10 — Docs, deploy hardening, submission | Sep 30          | ⬜ Not started      |
 
 Legend: ✅ done · 🟡 in progress / partial · 🔴 blocked · ⬜ not started
 
 ---
 
-## Outstanding — reviewed 14 Sep 2026
+## Outstanding — reviewed 15 Sep 2026
 
 Written down so the next session starts from the truth rather than from this file's
 previous claims, several of which had gone stale.
@@ -68,9 +68,9 @@ no way to say so. Measured over 1,299 real labels carrying 45,454 printed names:
 
 |                                      | Before | After      |
 | ------------------------------------ | ------ | ---------- |
-| label names the corpus can read      | 4.8 %  | **67.0 %** |
+| label names the corpus can read      | 4.8 %  | **69.3 %** |
 | median unknown names per label       | 31     | **10**     |
-| distinct unknown names               | 5,390  | 3,791      |
+| distinct unknown names               | 5,390  | 3,774      |
 | cited entries shadowed by the import | —      | **0**      |
 
 And it works end to end, which it never had before:
@@ -87,24 +87,87 @@ name is still in it.** The remainder have no citable identity source in this pro
 inventing them would cost the per-entry citation the whole methodology rests on. That is a
 quantified limit of a citation-first approach, not a to-do.
 
-**The cheapest remaining win is aliases, not identities.** The top unresolved names are
-`water` (1,011 of 1,299 labels) and `fragrance` (357) — and the corpus already holds `Aqua`
-and `Parfum`. Those are common-name synonyms, which rubric Section 4.1 says belong in
-`aliases`. A small cited synonym set would move more labels than thousands more identities.
+**The synonym set is done, and the Glossary supplied it.** The plan was to hand-write a
+`water → Aqua` alias and find a citation for it. That turned out to be unnecessary: row
+L421 of the Glossary reads `AQUA | INN name: water | Ph. Eur. Name: aqua`, so the seeder
+now reads those two columns as aliases and asserts nothing of its own. **340 synonyms**
+came from the source across **302 rows**, and `water` — on 1,011 of 1,299 labels — is one
+of them. Token coverage moved 67.0 % → 69.3 %, which is almost exactly the weight of
+`water` alone, and a US-style label now resolves cleanly:
 
-The rubric defines four tiers and the dataset can currently produce three of them.
+```
+Water, Glycerin, Tocopherol, Xanthan Gum  ->  Safe, 4 matched, 0 unmatched
+```
+
+**`fragrance` is not derivable and was not invented.** The Glossary's `PARFUM` row carries
+no INN name at all — its description is only "Perfume and aromatic compositions and their
+raw materials". `Fragrance` is the US INCI term and no source here states the equivalence,
+so 357 labels keep it as an unknown until a source for it exists.
 
 ### Evidence-trail hygiene
 
-| Item                                                              | State                                         |
-| ----------------------------------------------------------------- | --------------------------------------------- |
-| Commit log below stops at `82aac71`                               | 10 commits unrecorded — phases need assigning |
-| Phase 0 deploy targets (Fly, Vercel, Upstash) still unprovisioned | unchanged since 6 Aug                         |
+| Item                                                              | State                     |
+| ----------------------------------------------------------------- | ------------------------- |
+| Commit log below reconciled to `HEAD`                             | ✅ 15 Sep — 21 rows added |
+| `main` is 10 commits ahead of `origin/main`                       | 🔴 **all of it unpushed** |
+| Phase 0 deploy targets (Fly, Vercel, Upstash) still unprovisioned | unchanged since 6 Aug     |
 
-### Not started, and overdue
+`annexV.MD` was committed by mistake on 14 Sep and untracked again on 15 Sep. `.gitignore`
+keeps regulation reference copies out of the repo — they are large, redistributable only
+under EUR-Lex terms, and not build inputs, because the citable facts live in the seed
+files. The file stays in history on the unpushed commits; rewriting them to drop it is
+still available and is the only moment it will be cheap.
 
-Phases 2, 3 and 4 have no code. Phase 5 has an engine and an HTTP surface but nothing
-consumes it: `apps/web` is still the Next.js starter page. 16 days remain.
+---
+
+## Next steps
+
+Ordered by what fails worst if it is skipped. **15 days remain and there is still no
+user-facing product** — the API is in good shape and nothing can reach it.
+
+### 1. Push. Today.
+
+Ten commits of the strongest work in the project exist on one machine. Everything else on
+this list is worth less than not losing it. Decide first whether to rewrite history to drop
+`annexV.MD`, because after the push that choice is gone.
+
+### 2. Finish Phase 1 with the synonym set — half a day
+
+`water` fails on 1,011 of 1,299 labels and `fragrance` on 357, and the corpus already holds
+`Aqua` and `Parfum`. Add a small, cited INCI ↔ common-name synonym set to `aliases` per
+rubric Section 4.1. This is the highest coverage-per-hour left anywhere in the data, and it
+closes Phase 1 properly rather than declaring it closed.
+
+### 3. Deploy the API to Fly — half a day
+
+Phase 0 has carried this as ⬜ since 6 August. The web app cannot be built against nothing,
+and `fly.toml`, the `Dockerfile` and `TRUST_PROXY` are already in place, so this is
+configuration rather than construction.
+
+### 4. Build the web app — the bulk of the remaining time
+
+This is Phases 3, 4 and 5's interface and it is the critical path. In dependency order:
+
+- **Skin profile** — skin type and declared allergies. Hold it in `zustand` local state
+  first; `@supabase/ssr` is installed but auth is Phase 3 scope that the analysis flow does
+  not need. Add auth only if the schedule allows.
+- **Ingredient input** — paste a label into `POST /analyze`, with `GET /ingredients` behind
+  an autocomplete for manual entry. OCR is the stretch goal, not the path.
+- **Results view** — tier, the explanations, and the citation behind each one. It must show
+  what was _not_ recognised as prominently as what was: the median label still carries 10
+  unknown names, and a verdict that hides that is the failure mode this project has spent
+  the most effort avoiding.
+
+### 5. Deploy the web app to Vercel, then testing cycles
+
+Phases 7 to 10. Whatever time is left.
+
+### Deliberately not doing
+
+Upstash Redis and `bullmq` are dependencies with no consumer; there is no background work
+to queue. Sentry is wired and inert without a DSN, which is correct. `product_ingredients`
+stays empty — linking product text to ingredients needs identity coverage the corpus does
+not have, and the measurement in 1.3 says why.
 
 ---
 
@@ -125,6 +188,27 @@ consumes it: `apps/web` is still the Next.js starter page. 16 days remain.
 | `18211f9` | `feat(scoring): model Annex II prohibition as a regulatory status`               | 1     |
 | `f1fae36` | `feat(db): add initial migration and re-verify the product corpus count`         | 1     |
 | `82aac71` | `docs: record the seeded database state`                                         | 1     |
+| `38f1824` | `feat(scoring): implement the precedence tree and make rule 5 fire`              | 1     |
+| `ec91978` | `fix(scoring): stop rule 3 and rule 5 double-explaining one ingredient`          | 1     |
+| `65b8b5c` | `chore: keep regulation reference copies out of version control`                 | 0     |
+| `d83dae7` | `feat(data): complete the curated risk datasets and close the Annex II gap`      | 1     |
+| `971f563` | `feat(matching): resolve printed ingredient labels to seeded ingredients`        | 5     |
+| `e2c18d1` | `feat(matching): add spelling, common-name and fuzzy-suggestion strategies`      | 5     |
+| `2f956e4` | `fix(scoring): give photosensitising ingredients a rule that can fire`           | 1     |
+| `93aaf01` | `fix(api): fail closed on CORS and stop errors leaking internals`                | 0     |
+| `f2218d2` | `perf(matching): cache the ingredient index and bound fuzzy search`              | 5     |
+| `0325b20` | `perf(db): batch the curated seeder into three statements`                       | 1     |
+| `a33b86f` | `chore(deploy): pin the runtime and widen the health-check grace period`         | 0     |
+| `5bc92b7` | `feat(api): rate limiting, error reporting, and a pool sized for this workload`  | 0     |
+| `70a8d1f` | `fix(matching): split a comma with a digit on only one side`                     | 5     |
+| `2a9427a` | `feat(api): serve analysis and ingredient lookup over HTTP`                      | 5     |
+| `9f56a49` | `docs: reconcile the project plan with the measured database state`              | —     |
+| `28ee8c4` | `fix(db): let the curated seeder carry a correction, not only an insert`         | 1     |
+| `87f1d59` | `fix(data): cite the preservatives to Annex V and apply corrigendum R(02)`       | 1     |
+| `f9dca93` | `docs: record rubric open items 2 and 4 as closed`                               | 1     |
+| `088cb9a` | `perf(api): sort the corpus once per load instead of once per request`           | 5     |
+| `40a1fa4` | `feat(data): seed a cited identity baseline so a clean product can read as Safe` | 1     |
+| `87a2f13` | `docs: record the identity baseline and the ceiling it does not clear`           | 1     |
 
 Conventional Commits enforced from commit #1 (history squashed to guarantee this).
 A commit cannot cite its own hash, so this table always lags HEAD by one entry.

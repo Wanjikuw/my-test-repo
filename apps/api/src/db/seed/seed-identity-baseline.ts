@@ -40,6 +40,8 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export interface GlossaryIdentity {
   inciName: string;
+  /** Other names the Glossary itself gives for the same row. Never invented here. */
+  aliases: string[];
 }
 
 /**
@@ -59,6 +61,12 @@ export function repairColumnBreaks(raw: string): string {
  * Distinct INCI names from the Glossary, deduplicated on the matcher's own key so two
  * spellings of one name cannot become two ingredients.
  *
+ * Aliases come from the row's own `INN name` and `Ph. Eur. Name` columns. This is the
+ * whole reason a label reading `Water` can now be resolved: row L421 is
+ * `AQUA | INN name: water | Ph. Eur. Name: aqua`, so the synonym is stated by the source
+ * and nothing has to be asserted about it. `water` alone appears on 1,011 of 1,299 real
+ * labels, and every one of them used to come back unrecognised.
+ *
  * Names are stored as the source prints them, in capitals. The document writes them in
  * title case in its description column for only 1,475 of 7,662 rows, and title-casing the
  * rest mechanically would turn PEG, PVP, EDTA and every other INCI acronym into a word
@@ -68,8 +76,12 @@ export function readGlossaryIdentities(csv: string): GlossaryIdentity[] {
   const rows = parseCsv(csv.replace(/^\uFEFF/, ''));
   const header = rows[0];
   if (!header) throw new Error('glossary CSV is empty');
-  const iName = headerIndex(header).get('INCI name');
+  const index = headerIndex(header);
+  const iName = index.get('INCI name');
   if (iName === undefined) throw new Error('glossary CSV has no "INCI name" column');
+  const synonymColumns = ['INN name', 'Ph. Eur. Name']
+    .map((column) => index.get(column))
+    .filter((i): i is number => i !== undefined);
 
   const byKey = new Map<string, GlossaryIdentity>();
   for (let r = 1; r < rows.length; r++) {
@@ -77,12 +89,30 @@ export function readGlossaryIdentities(csv: string): GlossaryIdentity[] {
     if (!name || name.length < 2) continue;
     const key = normaliseInciName(name);
     if (!key || byKey.has(key)) continue;
-    byKey.set(key, { inciName: name });
+
+    const aliasKeys = new Set([key]);
+    const aliases: string[] = [];
+    for (const column of synonymColumns) {
+      const synonym = repairColumnBreaks(rows[r]?.[column] ?? '');
+      if (synonym.length < 2) continue;
+      const synonymKey = normaliseInciName(synonym);
+      if (!synonymKey || aliasKeys.has(synonymKey)) continue;
+      aliasKeys.add(synonymKey);
+      aliases.push(synonym);
+    }
+
+    byKey.set(key, { inciName: name, aliases });
   }
   return [...byKey.values()];
 }
 
-/** Glossary names the seeded corpus already resolves, which must keep their citation. */
+/**
+ * Glossary rows the seeded corpus already resolves, which must keep their citation.
+ *
+ * Aliases are filtered as well as names. An alias generates an `exact` key just as a
+ * primary name does, so an unfiltered synonym could take a cited Annex entry's key and
+ * the winner would come down to insertion order.
+ */
 export function partitionAgainstCorpus(
   identities: GlossaryIdentity[],
   records: IngredientRecord[],
@@ -91,8 +121,14 @@ export function partitionAgainstCorpus(
   const fresh: GlossaryIdentity[] = [];
   const alreadyKnown: GlossaryIdentity[] = [];
   for (const identity of identities) {
-    if (lookup(index, identity.inciName)) alreadyKnown.push(identity);
-    else fresh.push(identity);
+    if (lookup(index, identity.inciName)) {
+      alreadyKnown.push(identity);
+      continue;
+    }
+    fresh.push({
+      inciName: identity.inciName,
+      aliases: identity.aliases.filter((alias) => !lookup(index, alias)),
+    });
   }
   return { fresh, alreadyKnown };
 }
@@ -115,10 +151,18 @@ async function main() {
 
   const { loadMatchingContext } = await import('../../matching/context');
   const context = await loadMatchingContext();
-  const { fresh, alreadyKnown } = partitionAgainstCorpus(identities, context.records);
+
+  // Partitioned against the cited corpus only. Measuring against everything would count
+  // this script's own previous output as "already known", and a re-run could then never
+  // carry a correction — the same defect the curated seeder had with onConflictDoNothing.
+  const cited = context.records.filter((r) => r.sourceCitation !== GLOSSARY_CITATION);
+  const { fresh, alreadyKnown } = partitionAgainstCorpus(identities, cited);
 
   console.log(`Already resolvable, left untouched: ${alreadyKnown.length}`);
   console.log(`New identity rows to write        : ${fresh.length}`);
+  console.log(
+    `Synonyms carried from the source   : ${fresh.reduce((n, i) => n + i.aliases.length, 0)}`,
+  );
 
   if (dryRun) {
     console.log('Dry run — nothing written.');
@@ -133,14 +177,14 @@ async function main() {
       .values(
         batch.map((identity) => ({
           inciName: identity.inciName,
-          aliases: [],
+          aliases: identity.aliases,
           regulatoryStatus: 'none' as const,
           sourceCitation: GLOSSARY_CITATION,
         })),
       )
       .onConflictDoUpdate({
         target: ingredients.inciName,
-        set: { sourceCitation: sql`excluded.source_citation` },
+        set: { aliases: sql`excluded.aliases`, sourceCitation: sql`excluded.source_citation` },
         // Only a row already attributed to the Glossary may be rewritten by this script.
         setWhere: eq(ingredients.sourceCitation, GLOSSARY_CITATION),
       })
