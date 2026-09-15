@@ -1,1 +1,37 @@
 @import 'tailwindcss';
+
+/**
+ * Angalia tokens. Two rules the colours alone do not show: tier colours are the only
+ * saturated hues in the system, and `unread` is a neutral — an ingredient we could not
+ * identify is a gap in our data, not a hazard in the product, and must not read as one.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --color-shell: #faf7f2;
+  --color-surface: #ffffff;
+  --color-ink: #211d18;
+  --color-muted: #6d635a;
+  --color-line: #e5ddd1;
+
+  --color-avoid: #8c2f26;
+  --color-avoid-wash: #f7ebe8;
+  --color-caution: #8a5a1b;
+  --color-caution-wash: #fbf1e3;
+  --color-safe: #3f6146;
+  --color-safe-wash: #ecf2ec;
+
+  --color-unread: #6d635a;
+  --color-unread-wash: #f1ece4;
+}
+
+html {
+  background: var(--color-shell);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+}
