@@ -48,8 +48,8 @@ export function annotate(label: string, result: AnalyzeResponse): AnnotatedName[
   const names: AnnotatedName[] = [
     ...result.matched.map((match): AnnotatedName => {
       const reasons = reasonsFor.get(match.inciName) ?? [];
-      // The Glossary prints its names in capitals, so an exact comparison would render
-      // `Glycerin -> GLYCERIN` and present it as though it were information.
+      // The Glossary prints its names in capitals, so comparing exactly would render
+      // `Glycerin → GLYCERIN` and call it information.
       const differsBeyondCase = match.inciName.toLowerCase() !== match.matchedFrom.toLowerCase();
       return {
         printed: match.matchedFrom,
@@ -88,9 +88,8 @@ export const TIER_LABEL: Record<ScoredResult['tier'], string> = {
 
 /** Tier wording is never the whole story, so each carries the caveat it needs. */
 export const TIER_NOTE: Record<ScoredResult['tier'], string> = {
-  Avoid:
-    'An ingredient here is prohibited, on your declared list, or escalated for your skin type.',
-  Caution: 'An ingredient here carries a documented risk relevant to your profile.',
+  Avoid: 'At least one ingredient is prohibited, declared by you, or escalated for your skin type.',
+  Caution: 'At least one ingredient carries a documented risk relevant to your profile.',
   UnverifiedCaution:
     'Some names on this label are not in the reference data, so they could not be checked.',
   Safe: 'Nothing that could be identified triggered a rule.',
