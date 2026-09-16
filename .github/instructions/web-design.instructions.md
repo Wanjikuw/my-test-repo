@@ -48,14 +48,17 @@ The engine already writes in this register. Match it; do not soften it.
 ## Rules the results screen must obey
 
 1. **Lead with the annotated ingredient list.** The user pasted a list; give it back to
-   them marked up in place — flagged, unrecognised, or clean — in the order printed. The
-   tier word is a consequence shown alongside, not a badge that replaces the detail.
+   them marked up in place — flagged, on record, clean, or unrecognised — in the order
+   printed. The tier word is a consequence shown alongside, not a badge that replaces the
+   detail.
 2. **Coverage gets equal billing with the verdict.** Identified-vs-total sits at the same
    visual weight as the tier, always on screen, never behind a disclosure.
 3. **Every flag shows its citation.** The regulation reference is part of the claim.
-4. **Unrecognised names are a distinct state**, visually separate from both "flagged" and
-   "clean". They are not a warning and not an absence.
-5. **Never a bare green tick.** `Safe` means "nothing we identified triggered a rule", and
+4. **What is on record is not the same as what applies to this person.** An ingredient can
+   carry a tag and trigger no rule. Show the tag, and say plainly that nothing fired.
+5. **Unrecognised names are a distinct state**, visually separate from flagged, on-record
+   and clean. They are not a warning and not an absence.
+6. **Never a bare green tick.** `Safe` means "nothing we identified triggered a rule", and
    the screen must still say how much was identified.
 
 ## Visual character — soft, cosmetic-adjacent, not clinical-looking
@@ -64,11 +67,31 @@ The _tone_ is clinical; the _surface_ is not. Muted, warm, low-saturation. It sh
 closer to a skincare brand than to a hospital system, while never sounding like one.
 
 - **Colour**: a restrained warm neutral base. Tier colours are the only saturated elements
-  and must be muted, not traffic-light. Unrecognised uses a neutral, never yellow.
+  and must be muted, not traffic-light. Unrecognised uses a neutral, never yellow — but a
+  neutral bright enough to read as a state rather than as a missing one.
 - **Type**: one serif for headings and long-form, one grotesque for UI and data. INCI names
-  and regulation references set in the UI face, never the serif.
+  and regulation references set in the UI face, never the serif. Fonts are **self-hosted**;
+  `next/font/google` fetches at build time and has already broken the build once.
 - **Shape**: generous spacing, restrained radii, hairline rules rather than heavy borders.
-- **Motion**: only to show state change. Nothing decorative, nothing on scroll-into-view.
+
+## Motion
+
+Scroll reveals are permitted on the **landing page only**. The tool's screens get motion
+only to show a state change. Anything that moves must meet all of these:
+
+- **Compositor-only properties.** `opacity` and `translate`, nothing else. Note that
+  Tailwind v4 emits the independent `translate` property, so a transition list naming
+  `transform` will leave the movement snapping while only the fade animates.
+- **One shared `IntersectionObserver`**, never a scroll listener, and never one observer
+  per element.
+- **Content is never hidden without JavaScript.** Render visible, let the observer hide;
+  the first observation snaps rather than transitions.
+- **Bidirectional and direction-aware.** Re-read the origin on the way in — direction
+  recorded on the way out goes stale whenever the page moves without crossing the element.
+- **`prefers-reduced-motion: reduce` disables it entirely**, leaving everything visible.
+- **Fast.** Around 380 ms, short travel, stagger capped near 150 ms. Verify with zero long
+  tasks under a hard scroll before calling it done.
+- Never animate what is already on screen at load.
 
 ## Both mobile and desktop, camera on both
 
@@ -78,12 +101,15 @@ research. Consequences:
 - Mobile is the shop-aisle case and must support **camera capture for OCR**; desktop must
   support it too where a webcam exists. Paste and manual entry are always available.
 - Never gate the tool behind sign-in. The skin profile lives in local state first.
+- Check long INCI names at 390 px. They wrap, and a highlight sliced across the break reads
+  as a rendering fault.
 
 ## Banned by default
 
 Gradient hero backgrounds · three-up feature card grids · emoji in product copy ·
 green tick / red cross iconography · generic stock photography of women applying cream ·
 "AI-powered" anywhere · chat interfaces · skeleton shimmer as decoration ·
+counters that animate themselves into view · parallax ·
 tooltips carrying information the user needs to make the decision.
 
 ## Accessibility
