@@ -24,6 +24,13 @@
 
   --color-unread: #6d635a;
   --color-unread-wash: #f1ece4;
+
+  /* The same states lifted for the dark band, where the ink-on-paper values go muddy.
+     The neutral is kept bright enough to read as a state rather than as a missing one. */
+  --color-avoid-lift: #dd9a8e;
+  --color-caution-lift: #d9b277;
+  --color-safe-lift: #9dbda4;
+  --color-unread-lift: #b3a89f;
 }
 
 html {
@@ -34,4 +41,9 @@ html {
 
 body {
   font-family: var(--font-sans);
+}
+
+/* The label is quoted back to the user, so it keeps the line breaks they pasted. */
+.label-quote {
+  white-space: pre-wrap;
 }
