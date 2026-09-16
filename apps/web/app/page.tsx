@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LabelPoster, LabelReading } from '../components/specimen';
+import { Photograph } from '../components/photograph';
 import { Reveal } from '../components/reveal';
 
 /**
@@ -9,6 +10,11 @@ import { Reveal } from '../components/reveal';
  *
  * Backgrounds alternate deliberately (surface, ink, surface tiles, shell, surface, shell)
  * so each band reads as its own plate rather than as one long scroll.
+ *
+ * Photography opens and closes the page and appears nowhere between. The middle of the
+ * page is the argument, and it is made in type and figures; a product shot next to a
+ * coverage number would be selling rather than reporting. Both frames are toned into the
+ * palette and carry the type on their empty side.
  *
  * The hero is deliberately not revealed. Animating what is already on screen at load buys
  * nothing and risks a flash of hidden content on the one block everybody sees.
@@ -66,24 +72,34 @@ export default function HomePage() {
   return (
     <main>
       <section className="border-b border-line bg-surface">
-        <div className="mx-auto max-w-5xl px-5 pt-20 pb-14 sm:pt-28 sm:pb-16">
-          <p className="text-xs font-medium tracking-[0.2em] text-muted uppercase">
-            Regulation (EC) No 1223/2009
-          </p>
-          <h1 className="mt-6 max-w-3xl font-serif text-5xl leading-[1.02] sm:text-7xl">
-            Read the label before your skin does.
-          </h1>
-          <div className="mt-7 flex flex-wrap items-center gap-x-10 gap-y-6">
-            <p className="max-w-xl text-lg leading-relaxed text-muted">
-              Angalia checks a cosmetic ingredient list against EU regulation and your skin profile,
-              and tells you plainly which ingredients it could not identify.
+        <div className="relative isolate flex min-h-[30rem] items-center overflow-hidden sm:min-h-[36rem]">
+          {/* Held right of centre: the marble is empty on the left, which is where the type goes. */}
+          <Photograph
+            src="/hero/marble.jpg"
+            tone="surface"
+            saturate={0.55}
+            objectPosition="72% 45%"
+            priority
+          />
+          <div className="relative mx-auto w-full max-w-5xl px-5 py-20 sm:py-24">
+            <p className="text-xs font-medium tracking-[0.2em] text-muted uppercase">
+              Regulation (EC) No 1223/2009
             </p>
-            <Link
-              href="/check"
-              className="rounded-md bg-ink px-8 py-4 text-sm tracking-wide text-shell"
-            >
-              Check a label
-            </Link>
+            <h1 className="mt-6 max-w-3xl font-serif text-5xl leading-[1.02] sm:text-7xl">
+              Read the label before your skin does.
+            </h1>
+            <div className="mt-7 flex flex-wrap items-center gap-x-10 gap-y-6">
+              <p className="max-w-xl text-lg leading-relaxed text-muted">
+                Angalia checks a cosmetic ingredient list against EU regulation and your skin
+                profile, and tells you plainly which ingredients it could not identify.
+              </p>
+              <Link
+                href="/check"
+                className="rounded-md bg-ink px-8 py-4 text-sm tracking-wide text-shell"
+              >
+                Check a label
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -164,21 +180,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Reveal as="section" className="mx-auto max-w-5xl px-5 py-24 sm:py-32">
-        <h2 className="max-w-2xl font-serif text-4xl leading-tight sm:text-5xl">
-          Paste a list, or photograph the back of the bottle.
-        </h2>
-        <p className="mt-5 max-w-lg leading-relaxed text-muted">
-          Reading a photograph happens on your device. Nothing is uploaded, and no account is
-          required.
-        </p>
-        <Link
-          href="/check"
-          className="mt-10 inline-block rounded-md bg-ink px-8 py-4 text-sm tracking-wide text-shell"
-        >
-          Check a label
-        </Link>
-      </Reveal>
+      <section className="relative isolate overflow-hidden">
+        {/* Held low: the surf runs across the top of the frame and the products sit under it. */}
+        <Photograph src="/hero/shore.jpg" tone="shell" saturate={0.3} objectPosition="50% 68%" />
+        <Reveal className="relative mx-auto max-w-5xl px-5 py-24 sm:py-32">
+          <h2 className="max-w-2xl font-serif text-4xl leading-tight sm:text-5xl">
+            Paste a list, or photograph the back of the bottle.
+          </h2>
+          <p className="mt-5 max-w-lg leading-relaxed text-muted">
+            Reading a photograph happens on your device. Nothing is uploaded, and no account is
+            required.
+          </p>
+          <Link
+            href="/check"
+            className="mt-10 inline-block rounded-md bg-ink px-8 py-4 text-sm tracking-wide text-shell"
+          >
+            Check a label
+          </Link>
+        </Reveal>
+      </section>
     </main>
   );
 }
