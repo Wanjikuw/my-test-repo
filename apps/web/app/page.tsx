@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LabelPoster, LabelReading } from '../components/specimen';
+import { Reveal } from '../components/reveal';
 
 /**
  * Full-bleed bands, large type and scroll rhythm — the language the design instructions
@@ -8,6 +9,9 @@ import { LabelPoster, LabelReading } from '../components/specimen';
  *
  * Backgrounds alternate deliberately (surface, ink, surface tiles, shell, surface, shell)
  * so each band reads as its own plate rather than as one long scroll.
+ *
+ * The hero is deliberately not revealed. Animating what is already on screen at load buys
+ * nothing and risks a flash of hidden content on the one block everybody sees.
  *
  * Every figure is measured rather than decorative: they come from the seeded corpus and
  * the coverage run over 1,299 real retail labels. The unflattering one is here on purpose.
@@ -83,19 +87,19 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-5xl border-t border-line px-5 py-12 sm:py-16">
+        <Reveal className="mx-auto max-w-5xl border-t border-line px-5 py-12 sm:py-16">
           <p className="text-xs font-medium tracking-[0.2em] text-muted uppercase">
             A label, as printed
           </p>
           <div className="mt-7">
             <LabelPoster />
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <section className="bg-ink text-shell">
         <div className="mx-auto max-w-5xl px-5 py-20 sm:py-28">
-          <div className="flex flex-wrap items-end justify-between gap-6">
+          <Reveal className="flex flex-wrap items-end justify-between gap-6">
             <h2 className="max-w-lg font-serif text-4xl leading-tight sm:text-5xl">
               The same label, read.
             </h2>
@@ -103,59 +107,64 @@ export default function HomePage() {
               Nine names. One prohibited outright, two restricted and declarable, one the reference
               data has never heard of.
             </p>
-          </div>
-          <div className="mt-12">
+          </Reveal>
+          <Reveal className="mt-12" delay={60}>
             <LabelReading />
-          </div>
+          </Reveal>
         </div>
       </section>
 
       <section className="border-b border-line py-px">
         <dl className="mx-auto grid max-w-5xl grid-cols-2 gap-px bg-line sm:grid-cols-4">
-          {FIGURES.map((figure) => (
-            <div key={figure.label} className="bg-surface px-5 py-12">
+          {FIGURES.map((figure, i) => (
+            <Reveal key={figure.label} className="bg-surface px-5 py-12" delay={i * 50}>
               <dt className="font-serif text-4xl sm:text-5xl">{figure.value}</dt>
               <dd className="mt-3 text-sm leading-snug text-muted">{figure.label}</dd>
-            </div>
+            </Reveal>
           ))}
         </dl>
       </section>
 
       <section className="mx-auto max-w-5xl px-5 py-20 sm:py-24">
-        <h2 className="font-serif text-4xl">How it reads a label</h2>
+        <Reveal>
+          <h2 className="font-serif text-4xl">How it reads a label</h2>
+        </Reveal>
         <div className="mt-12 space-y-px bg-line">
-          {METHOD.map((item) => (
-            <div
+          {METHOD.map((item, i) => (
+            <Reveal
               key={item.step}
               className="grid gap-4 bg-shell py-8 sm:grid-cols-[6rem_1fr] sm:gap-10"
+              delay={i * 50}
             >
               <p className="font-serif text-3xl text-line sm:text-4xl">{item.step}</p>
               <div className="max-w-2xl">
                 <h3 className="font-serif text-2xl">{item.heading}</h3>
                 <p className="mt-3 leading-relaxed text-muted">{item.body}</p>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       <section className="border-y border-line bg-surface">
         <div className="mx-auto max-w-5xl px-5 py-20 sm:py-24">
-          <h2 className="max-w-xl font-serif text-4xl leading-tight">
-            What it will not do, stated up front.
-          </h2>
+          <Reveal>
+            <h2 className="max-w-xl font-serif text-4xl leading-tight">
+              What it will not do, stated up front.
+            </h2>
+          </Reveal>
           <div className="mt-12 grid gap-x-12 gap-y-10 sm:grid-cols-2">
-            {LIMITS.map((limit) => (
-              <div key={limit.heading} className="border-t border-line pt-5">
+            {LIMITS.map((limit, i) => (
+              <Reveal key={limit.heading} className="border-t border-line pt-5" delay={i * 50}>
                 <h3 className="font-medium">{limit.heading}</h3>
                 <p className="mt-2 leading-relaxed text-muted">{limit.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-5 py-24 sm:py-32">
+      <Reveal as="section" className="mx-auto max-w-5xl px-5 py-24 sm:py-32">
         <h2 className="max-w-2xl font-serif text-4xl leading-tight sm:text-5xl">
           Paste a list, or photograph the back of the bottle.
         </h2>
@@ -169,7 +178,7 @@ export default function HomePage() {
         >
           Check a label
         </Link>
-      </section>
+      </Reveal>
     </main>
   );
 }
