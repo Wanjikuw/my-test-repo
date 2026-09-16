@@ -1,10 +1,26 @@
 import type { ReactNode } from 'react';
-import { Fraunces, Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import Link from 'next/link';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces', display: 'swap' });
+/**
+ * Self-hosted rather than `next/font/google`, which fetches at build time and made the
+ * build fail on an intermittent `ETIMEDOUT` from fonts.gstatic.com. A build that can be
+ * broken by someone else's CDN is not a build.
+ */
+const inter = localFont({
+  src: './fonts/inter.woff2',
+  variable: '--font-inter',
+  weight: '400 600',
+  display: 'swap',
+});
+
+const fraunces = localFont({
+  src: './fonts/fraunces.woff2',
+  variable: '--font-fraunces',
+  weight: '400 700',
+  display: 'swap',
+});
 
 export const metadata = {
   title: 'Angalia — check what is in your skincare',
