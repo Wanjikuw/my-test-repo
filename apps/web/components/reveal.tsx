@@ -3,43 +3,53 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /**
- * Reveals a block as it enters the viewport, in whichever direction it entered from.
+ * Reveals a block as it enters the viewport, from whichever side it arrives.
  *
- * Decisions that keep this from being the janky version:
+ * The distances are deliberately larger than a normal UI transition. A reveal competes
+ * with the scroll that triggered it: a wheel flick moves the page a few hundred pixels
+ * while the reveal runs, so a short drift is read as part of the scroll and not seen at
+ * all. It has to out-travel the noise or there is no point animating.
  *
- * One IntersectionObserver is shared by every instance. A page of twenty reveals otherwise
- * builds twenty observers, and a scroll listener would be worse still — it fires far more
- * often than the compositor can use and forces layout reads on the main thread.
+ * Two shared observers rather than one, because entering and leaving want different
+ * lines. Revealing at the very bottom edge puts the movement in peripheral vision, so
+ * `enter` is inset by a fifth at each end. Hiding on that same line would fade a block out
+ * while a fifth of the screen still showed it, so `exit` uses the whole viewport and a
+ * block only resets once it is genuinely gone. Both are module-level: seventeen blocks
+ * share two observers, and no scroll listener exists.
  *
- * Only `opacity` and `translate` animate. Both are composited, so the work happens off the
- * main thread and never triggers layout or paint. `translate` rather than `transform`
- * because Tailwind v4 emits the independent property, and transitioning `transform`
- * instead leaves the movement snapping while only the fade animates.
+ * Only `opacity` and `translate` animate — both composited. `translate` rather than
+ * `transform`: Tailwind v4 emits the independent property, so transitioning `transform`
+ * leaves the movement snapping while only the fade runs.
  *
- * Nothing is hidden until the observer has spoken. The server renders every block visible,
- * so a failed or disabled script leaves the page readable rather than blank — and the
- * first observation snaps rather than transitions, so blocks below the fold do not animate
- * themselves out on load.
+ * Nothing is hidden until an observer has spoken, so the page stays readable without
+ * JavaScript, and the first observation snaps rather than transitions.
  *
- * The origin is re-read on the way in, a frame before the block is revealed. Direction
- * recorded on the way out goes stale the moment anything moves the page without crossing
- * the element — an in-page anchor, scroll restoration, a flung scroll — and the block then
- * animates in from the side it left rather than the side it is arriving from.
+ * The origin is re-read on the way in. Direction recorded on the way out goes stale the
+ * moment the page moves without crossing the element — an anchor jump, scroll restoration
+ * — and the block then arrives from the wrong side.
  */
 type Notify = (entry: IntersectionObserverEntry) => void;
 
-let sharedObserver: IntersectionObserver | null = null;
-const listeners = new Map<Element, Notify>();
+const enterListeners = new Map<Element, Notify>();
+const exitListeners = new Map<Element, Notify>();
 
-function observerFor(): IntersectionObserver {
-  sharedObserver ??= new IntersectionObserver(
+let enterObserver: IntersectionObserver | null = null;
+let exitObserver: IntersectionObserver | null = null;
+
+function observers(): { enter: IntersectionObserver; exit: IntersectionObserver } {
+  const enter = (enterObserver ??= new IntersectionObserver(
     (entries) => {
-      for (const entry of entries) listeners.get(entry.target)?.(entry);
+      for (const entry of entries) enterListeners.get(entry.target)?.(entry);
     },
-    // Fires a little inside the edge so the movement reads as arrival, not as a correction.
-    { rootMargin: '0px 0px -8% 0px', threshold: 0 },
-  );
-  return sharedObserver;
+    { rootMargin: '-20% 0px -20% 0px', threshold: 0 },
+  ));
+  const exit = (exitObserver ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) exitListeners.get(entry.target)?.(entry);
+    },
+    { threshold: 0 },
+  ));
+  return { enter, exit };
 }
 
 export function Reveal({
@@ -58,7 +68,7 @@ export function Reveal({
   const [shown, setShown] = useState(true);
   const [fromBelow, setFromBelow] = useState(true);
   const [armed, setArmed] = useState(false);
-  const hasObserved = useRef(false);
+  const seen = useRef(false);
 
   useEffect(() => {
     const element = ref.current;
@@ -66,43 +76,46 @@ export function Reveal({
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let pending = 0;
-    const observer = observerFor();
+    const { enter, exit } = observers();
 
-    listeners.set(element, (entry) => {
-      const below = entry.boundingClientRect.top > 0;
-      setFromBelow(below);
-
-      if (!hasObserved.current) {
-        hasObserved.current = true;
-        setShown(entry.isIntersecting);
-        // Two frames: let the snap paint before transitions are allowed to run.
-        requestAnimationFrame(() => requestAnimationFrame(() => setArmed(true)));
-        return;
-      }
-
+    enterListeners.set(element, (entry) => {
+      if (!entry.isIntersecting) return;
+      setFromBelow(entry.boundingClientRect.top > 0);
       cancelAnimationFrame(pending);
-      if (entry.isIntersecting) {
-        // Let the corrected origin paint, then travel from it.
-        pending = requestAnimationFrame(() => setShown(true));
-      } else {
-        setShown(false);
-      }
+      // Let the corrected origin paint, then travel from it.
+      pending = requestAnimationFrame(() => setShown(true));
     });
-    observer.observe(element);
+
+    exitListeners.set(element, (entry) => {
+      if (!seen.current) {
+        seen.current = true;
+        // Two frames: let the first state paint before transitions are allowed to run.
+        requestAnimationFrame(() => requestAnimationFrame(() => setArmed(true)));
+      }
+      if (entry.isIntersecting) return;
+      cancelAnimationFrame(pending);
+      setFromBelow(entry.boundingClientRect.top > 0);
+      setShown(false);
+    });
+
+    enter.observe(element);
+    exit.observe(element);
 
     return () => {
       cancelAnimationFrame(pending);
-      listeners.delete(element);
-      observer.unobserve(element);
+      enterListeners.delete(element);
+      exitListeners.delete(element);
+      enter.unobserve(element);
+      exit.unobserve(element);
     };
   }, []);
 
   const motion = armed
-    ? 'motion-safe:transition-[opacity,translate] motion-safe:duration-[380ms] motion-safe:ease-out'
+    ? 'motion-safe:transition-[opacity,translate] motion-safe:duration-[620ms] motion-safe:ease-out'
     : '';
   const position = shown
     ? 'opacity-100 translate-y-0'
-    : `opacity-0 ${fromBelow ? 'translate-y-5' : '-translate-y-5'}`;
+    : `opacity-0 ${fromBelow ? 'translate-y-10' : '-translate-y-10'}`;
 
   return (
     <Tag
