@@ -82,16 +82,23 @@ only to show a state change. Anything that moves must meet all of these:
 - **Compositor-only properties.** `opacity` and `translate`, nothing else. Note that
   Tailwind v4 emits the independent `translate` property, so a transition list naming
   `transform` will leave the movement snapping while only the fade animates.
-- **One shared `IntersectionObserver`**, never a scroll listener, and never one observer
-  per element.
+- **Big enough to beat the scroll.** A reveal competes with the gesture that triggered it:
+  at an ordinary rate the page travels several hundred pixels while the reveal runs, so a
+  short drift is read as part of the scroll and not seen at all. 40 px over 620 ms
+  registers; 20 px over 380 ms was invisible to the naked eye and shipped that way once.
+- **Revealed where the eye is, reset only once gone.** Firing at the viewport edge puts
+  the movement in peripheral vision. Enter on a line inset a fifth at each end; leave the
+  reset on the full viewport, so nothing ever fades out while part of it is still on
+  screen. That takes two observers — both still shared across every block, still never a
+  scroll listener, and never one observer per element.
 - **Content is never hidden without JavaScript.** Render visible, let the observer hide;
   the first observation snaps rather than transitions.
 - **Bidirectional and direction-aware.** Re-read the origin on the way in — direction
   recorded on the way out goes stale whenever the page moves without crossing the element.
 - **`prefers-reduced-motion: reduce` disables it entirely**, leaving everything visible.
-- **Fast.** Around 380 ms, short travel, stagger capped near 150 ms. Verify with zero long
-  tasks under a hard scroll before calling it done.
-- Never animate what is already on screen at load.
+- **Stagger capped near 150 ms**, and never animate what is already on screen at load.
+- Measure before calling it done: zero long tasks and zero layout shift under a hard
+  scroll, and trace where on screen the fade actually starts, passes half, and finishes.
 
 ## Both mobile and desktop, camera on both
 
