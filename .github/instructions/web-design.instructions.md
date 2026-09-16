@@ -111,9 +111,32 @@ research. Consequences:
 - Check long INCI names at 390 px. They wrap, and a highlight sliced across the break reads
   as a rendering fault.
 
+## Photography
+
+Permitted in the opening and closing bands only, never beside a figure or a verdict. A
+product shot next to a coverage number is selling; the middle of the page argues in type.
+
+- **Toned into the palette, per frame.** Nothing arrives untreated, and `saturate` is set
+  per image rather than shared: measured across the frame, the shore photograph still
+  leaves 10% of its pixels cooler than neutral at 0.55 and none at all at 0.3, while the
+  marble one is warm to begin with and only drains if pulled that far. Treated, both sit
+  at a chroma of 7–12, between `shell` at 8 and `line` at 20. Nothing may read cooler than
+  neutral — the only cool hue in this system is `safe` green, and it carries a meaning.
+- **Type keeps the contrast it has elsewhere.** Measure the fifth-percentile luminance
+  under every glyph rectangle, not the block box: a full-width `<p>` reports the
+  background beside its text and will tell you the hero fails when it does not. The bar is
+  the ratio that text already has on plain surface. A photograph may cost a fraction of a
+  point, not a grade.
+- **The scrim is a legibility device, not decoration.** Side-weighted where the type
+  occupies one side, flat where it spans the frame. This is not a gradient background,
+  which stays banned.
+- **Source at 2400 px or wider.** A full-bleed band spans about 2880 device pixels on an
+  ordinary laptop. Nothing sharpens detail that was never captured.
+- **Licensed, and recorded as licensed.** This work gets submitted.
+
 ## Banned by default
 
-Gradient hero backgrounds · three-up feature card grids · emoji in product copy ·
+Gradient hero backgrounds, which a scrim over a photograph is not · three-up feature card grids · emoji in product copy ·
 green tick / red cross iconography · generic stock photography of women applying cream ·
 "AI-powered" anywhere · chat interfaces · skeleton shimmer as decoration ·
 counters that animate themselves into view · parallax ·
