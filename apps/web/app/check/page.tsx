@@ -8,6 +8,7 @@ import { useProfile } from '../../lib/profile';
 import { ProfileControls } from '../../components/profile-controls';
 import { Verdict } from '../../components/verdict';
 import { IngredientRow } from '../../components/ingredient-row';
+import { LabelCapture } from '../../components/label-capture';
 
 export default function CheckPage() {
   const { skinType, sunExposure, declaredAllergies } = useProfile();
@@ -41,7 +42,7 @@ export default function CheckPage() {
     <main className="mx-auto max-w-3xl px-5 py-10 sm:py-16">
       <h1 className="font-serif text-3xl">Check a label</h1>
       <p className="mt-2 text-muted">
-        Paste the ingredient list exactly as it is printed on the packaging.
+        Paste the ingredient list exactly as it is printed on the packaging, or photograph it.
       </p>
 
       <form onSubmit={submit} className="mt-8 space-y-6">
@@ -62,6 +63,9 @@ export default function CheckPage() {
             placeholder="Aqua, Glycerin, Linalool, Limonene…"
             className="label-quote mt-3 w-full rounded-md border border-line bg-surface p-4 text-sm outline-none focus:border-ink"
           />
+          <div className="mt-3">
+            <LabelCapture onText={setLabel} />
+          </div>
         </div>
 
         <button
