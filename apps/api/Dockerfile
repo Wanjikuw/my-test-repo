@@ -2,7 +2,7 @@
 # or build time actually becomes a problem, not preemptively.
 # Pinned to the exact version in .nvmrc. A floating 20-slim tag would let the image
 # drift onto a runtime CI never tested.
-FROM node:20.20.2-slim
+FROM node:26.9.0-slim
 
 WORKDIR /app
 
