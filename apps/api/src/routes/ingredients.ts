@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { RegulatoryStatus, RiskCategory } from '@allergy-checker/shared';
+import type {
+  IngredientDetail,
+  IngredientSearchResponse,
+  IngredientSummary,
+} from '@allergy-checker/shared';
 import type { MatchingContext } from '../matching/context';
 import type { IngredientRecord } from '../matching/matcher';
 import { normaliseInciName } from '../matching/normalise';
@@ -9,20 +13,6 @@ import { loadContextLazily, notFound, parseOrThrow, type LoadContext } from './s
 export const MAX_QUERY_CHARS = 200;
 export const MAX_LIMIT = 100;
 export const DEFAULT_LIMIT = 20;
-
-export interface IngredientSummary {
-  id: string;
-  inciName: string;
-  aliases: string[];
-  regulatoryStatus: RegulatoryStatus;
-  riskCategories: RiskCategory[];
-}
-
-export interface IngredientDetail extends IngredientSummary {
-  sourceCitation: string;
-  /** One citation per tag: the evidence that a substance exists and that it is risky differ. */
-  riskTags: { riskCategory: RiskCategory; sourceCitation: string }[];
-}
 
 const SearchQuery = z.object({
   q: z.string().trim().min(1).max(MAX_QUERY_CHARS).optional(),
@@ -95,7 +85,7 @@ export interface IngredientRouteOptions {
 export async function ingredientRoutes(app: FastifyInstance, options: IngredientRouteOptions = {}) {
   const loadContext = options.loadContext ?? loadContextLazily;
 
-  app.get('/ingredients', async (request) => {
+  app.get('/ingredients', async (request): Promise<IngredientSearchResponse> => {
     const { q, limit, offset } = parseOrThrow(SearchQuery, request.query);
     const context = await loadContext();
     const found = findIngredients(context, q ?? null);
@@ -108,7 +98,7 @@ export async function ingredientRoutes(app: FastifyInstance, options: Ingredient
     };
   });
 
-  app.get('/ingredients/:id', async (request) => {
+  app.get('/ingredients/:id', async (request): Promise<IngredientDetail> => {
     const { id } = parseOrThrow(z.object({ id: z.string().uuid() }), request.params);
     const context = await loadContext();
     const record = context.records.find((candidate) => candidate.id === id);
