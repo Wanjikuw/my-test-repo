@@ -54,21 +54,24 @@ belong to the phase that first uses them:
 
 #### 1a. Prerequisites
 
+On Windows, follow [CONTRIBUTING.md](CONTRIBUTING.md) instead — it is the same sequence in
+PowerShell, with the WSL and credential notes this section leaves out.
+
 | Tool    | Version                             | Notes                                                                                                  |
 | ------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Node.js | 20.11+ (20.18.0 pinned in `.nvmrc`) | CI and the API Dockerfile both use Node 20. Don't develop on a newer major without also bumping those. |
+| Node.js | 20.20.2 (pinned in `.nvmrc`)        | CI and the API Dockerfile both use Node 20. Don't develop on a newer major without also bumping those. |
 | pnpm    | 9.12.0 (pinned in `packageManager`) | Anything else risks a lockfile diff.                                                                   |
 
 ```bash
 # If you use nvm / nvm-windows:
-nvm install 20.18.0
-nvm use 20.18.0
+nvm install 20.20.2
+nvm use 20.20.2
 
 # Get pnpm at the exact pinned version (corepack ships with Node):
 corepack enable
 corepack prepare pnpm@9.12.0 --activate
 
-node --version    # expect v20.18.x
+node --version    # expect v20.20.2
 pnpm --version    # expect 9.12.0
 ```
 
@@ -108,21 +111,11 @@ If public npm is itself blocked by your proxy, you'll need either registry crede
 (`pnpm login`) or an off-network machine to produce the lockfile. The repo deliberately
 does **not** pin a registry in `.npmrc`, so it inherits whatever your environment provides.
 
-#### 1d. Commit the lockfile
+#### 1d. The lockfile
 
-**`pnpm-lock.yaml` is not in this repo yet** — it can only be produced by a real install,
-and the machine this scaffold was assembled on could not reach a registry that serves every
-package. Generate it and commit it before anything else:
-
-```bash
-pnpm install          # creates pnpm-lock.yaml
-git add pnpm-lock.yaml
-git commit -m "chore: add pnpm lockfile"
-```
-
-CI runs `pnpm install --frozen-lockfile` and `apps/api/Dockerfile` copies the lockfile —
-**both fail until this is committed.** This is the single hard prerequisite for every step
-below.
+`pnpm-lock.yaml` is committed. CI runs `pnpm install --frozen-lockfile` and
+`apps/api/Dockerfile` copies it, so install with `--frozen-lockfile` locally too and treat
+any lockfile change as a deliberate reviewable edit rather than install noise.
 
 #### 1e. Verify the install locally
 
