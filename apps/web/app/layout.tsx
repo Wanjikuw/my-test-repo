@@ -23,7 +23,7 @@ const fraunces = localFont({
 });
 
 export const metadata = {
-  title: 'Angalia — check what is in your skincare',
+  title: 'Angalia - check what is in your skincare',
   description:
     'Reads a cosmetic ingredient label against EU Regulation (EC) No 1223/2009 and your skin profile, and says plainly what it could not check.',
 };
