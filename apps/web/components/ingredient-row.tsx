@@ -10,6 +10,7 @@ const MARKER: Record<AnnotatedName['annotation'], string> = {
 const STRATEGY_NOTE: Record<string, string> = {
   loose: 'matched after removing the bracketed common name',
   'common-name': 'matched on the common name inside the brackets',
+  'alternate-name': 'matched on one of the names printed with a slash',
 };
 
 function Tag({ children, strong }: { children: React.ReactNode; strong?: boolean }) {

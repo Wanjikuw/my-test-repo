@@ -20,14 +20,19 @@ const SearchQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+const CONTAINS_HIT = 1;
+const PREFIX_HIT = 2;
+
 /**
  * Searches the matcher's own key space rather than the raw names, so the search box
  * inherits every resolution rule the analyser has: British spellings, common-name
  * inserts and aliases all hit. Anything findable here is therefore matchable there.
  *
- * A linear scan over the keys is deliberate at this corpus size — it is a sub-millisecond
- * walk over an already-resident map. If the glossary grows past six figures this becomes
- * a trigram index in Postgres, not a bigger loop.
+ * O(keys + records) and no sort. Each hit marks its record's rank — its place in the
+ * name-ordered corpus — as a prefix or a contains hit, and one walk over the marks yields
+ * the ranked result directly: a name starting with what was typed is what an autocomplete
+ * caller meant, and one merely containing it is a weaker guess. If the glossary grows past
+ * six figures this becomes a trigram index in Postgres, not a bigger loop.
  */
 export function findIngredients(
   context: MatchingContext,
@@ -38,23 +43,22 @@ export function findIngredients(
   const needle = normaliseInciName(query);
   if (needle.length === 0) return [];
 
-  const hits = new Map<string, { record: IngredientRecord; prefix: boolean }>();
-  for (const [key, entry] of context.index.byName) {
+  const { byName, records } = context.index;
+  const marks = new Uint8Array(records.length);
+  for (const [key, entry] of byName) {
     if (!key.includes(needle)) continue;
-    const prefix = key.startsWith(needle);
-    const seen = hits.get(entry.record.id);
-    if (!seen) hits.set(entry.record.id, { record: entry.record, prefix });
-    else if (prefix) seen.prefix = true;
+    if (key.startsWith(needle)) marks[entry.rank] = PREFIX_HIT;
+    else if (marks[entry.rank] === 0) marks[entry.rank] = CONTAINS_HIT;
   }
 
-  // A name starting with what was typed is what an autocomplete caller meant; a name
-  // merely containing it is a weaker guess and sorts below.
-  return [...hits.values()]
-    .sort(
-      (a, b) =>
-        Number(b.prefix) - Number(a.prefix) || a.record.inciName.localeCompare(b.record.inciName),
-    )
-    .map((hit) => hit.record);
+  const prefixed: IngredientRecord[] = [];
+  const containing: IngredientRecord[] = [];
+  for (let rank = 0; rank < marks.length; rank++) {
+    if (marks[rank] === PREFIX_HIT) prefixed.push(records[rank]!);
+    else if (marks[rank] === CONTAINS_HIT) containing.push(records[rank]!);
+  }
+
+  return prefixed.concat(containing);
 }
 
 export function toSummary(record: IngredientRecord): IngredientSummary {
@@ -101,7 +105,7 @@ export async function ingredientRoutes(app: FastifyInstance, options: Ingredient
   app.get('/ingredients/:id', async (request): Promise<IngredientDetail> => {
     const { id } = parseOrThrow(z.object({ id: z.string().uuid() }), request.params);
     const context = await loadContext();
-    const record = context.records.find((candidate) => candidate.id === id);
+    const record = context.index.byId.get(id);
     if (!record) throw notFound(`No ingredient with id ${id}.`);
 
     return toDetail(record);

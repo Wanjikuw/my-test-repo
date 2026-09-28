@@ -1,8 +1,8 @@
 # Simple single-stage build — fine for an MVP; revisit multi-stage only if image size
 # or build time actually becomes a problem, not preemptively.
-# Pinned to the exact version in .nvmrc. A floating 20-slim tag would let the image
+# Pinned to the exact version in .nvmrc. A floating 22-slim tag would let the image
 # drift onto a runtime CI never tested.
-FROM node:20.20.2-slim
+FROM node:22.23.2-slim
 
 WORKDIR /app
 

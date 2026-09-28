@@ -59,19 +59,19 @@ PowerShell, with the WSL and credential notes this section leaves out.
 
 | Tool    | Version                             | Notes                                                                                                  |
 | ------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Node.js | 20.20.2 (pinned in `.nvmrc`)        | CI and the API Dockerfile both use Node 20. Don't develop on a newer major without also bumping those. |
+| Node.js | 22.23.2 (pinned in `.nvmrc`)        | CI and the API Dockerfile both use Node 22. Don't develop on a newer major without also bumping those. |
 | pnpm    | 9.12.0 (pinned in `packageManager`) | Anything else risks a lockfile diff.                                                                   |
 
 ```bash
 # If you use nvm / nvm-windows:
-nvm install 20.20.2
-nvm use 20.20.2
+nvm install 22.23.2
+nvm use 22.23.2
 
 # Get pnpm at the exact pinned version (corepack ships with Node):
 corepack enable
 corepack prepare pnpm@9.12.0 --activate
 
-node --version    # expect v20.20.2
+node --version    # expect v22.23.2
 pnpm --version    # expect 9.12.0
 ```
 
@@ -160,12 +160,16 @@ pnpm --filter @allergy-checker/shared build # compile shared types only
    from Phase 1 onward must have RLS policies — this is a non-negotiable from the original
    stack requirements, not optional hardening.
 
-### 3. Upstash Redis
+### 3. Qwen (optional — remote OCR and model notes)
 
-1. Create a Redis database at upstash.com.
-2. Copy the connection URL into `REDIS_URL` in `.env`.
-3. This is used **only** for the OCR job queue (Phase 4) — if you find yourself reaching for
-   it anywhere else, stop and reconsider; that was the scope agreed on.
+Upstash Redis was dropped: the only planned consumer was an OCR job queue, and Qwen OCR is a
+single synchronous call, so there is no background work to queue.
+
+1. Create an Alibaba Cloud Model Studio API key in the Singapore region (new accounts get a
+   free quota), or use OpenRouter's free Qwen models by also setting `QWEN_BASE_URL` and
+   the two model names — see `.env.example`.
+2. Put it in `QWEN_API_KEY` for the **API only**. Without it the app works fully; the camera
+   reads on-device and the model notes are simply not offered.
 
 ### 4. Sentry
 
@@ -200,13 +204,14 @@ times actually become a problem. Don't spend Phase 0 time on it now.
 ### 6. Vercel (web deployment)
 
 1. Import the GitHub repo into Vercel.
-2. Set the root directory to `apps/web`.
-3. Override the build command to `cd ../.. && pnpm turbo run build --filter=@allergy-checker/web`.
-   This is required: `apps/web` depends on `@allergy-checker/shared`, which must be compiled
-   to `dist/` before `next build` can resolve it. A bare `next build` will fail.
-4. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_API_URL`
-   as Vercel project env vars. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` here.
-5. Deploy. You should get a live URL showing the Phase 0 placeholder homepage.
+2. Set the root directory to `apps/web`. `apps/web/vercel.json` carries the install and
+   build commands — the build runs `pnpm turbo run build --filter=@allergy-checker/web` from
+   the repo root, because `@allergy-checker/shared` must be compiled to `dist/` before
+   `next build` can resolve it — and `engines` in `apps/web/package.json` selects Node 22.
+3. Add `NEXT_PUBLIC_API_URL` (the Fly URL) for Production and Preview. A production build
+   refuses to run without it. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` or `QWEN_API_KEY`
+   here — neither belongs in a browser bundle.
+4. Deploy, then add the production domain to the API's `CORS_ORIGIN`.
 
 ### 7. Fly.io (API deployment)
 
@@ -215,10 +220,12 @@ times actually become a problem. Don't spend Phase 0 time on it now.
    whole monorepo as its build context to resolve the pnpm workspace. A `fly.toml` is already
    committed at the root and already points at port 3001; if `fly launch` offers to overwrite
    it, decline, and just change the `app` name to whatever Fly assigns you.
-3. Set secrets: `fly secrets set DATABASE_URL=... REDIS_URL=... SENTRY_DSN=...`
-   (`NODE_ENV` and `PORT` are already in `fly.toml` — secrets are for credentials only.)
+3. Set secrets: `fly secrets set DATABASE_URL=... CORS_ORIGIN=https://<vercel-domain> QWEN_API_KEY=... SENTRY_DSN=...`
+   `CORS_ORIGIN` is not optional: in production the API refuses to start without it rather
+   than reflect any origin. (`NODE_ENV`, `PORT` and `TRUST_PROXY` are already in `fly.toml`.)
 4. Deploy with `fly deploy`.
-5. Confirm `https://<your-app>.fly.dev/health` returns `{"status":"ok",...}`.
+5. Confirm `https://<your-app>.fly.dev/health` returns `{"status":"ok",...}` and
+   `/capabilities` names the Qwen models if a key was set.
 
 ## Definition of done for Phase 0
 
@@ -227,7 +234,7 @@ times actually become a problem. Don't spend Phase 0 time on it now.
 - [ ] Web app is live on a Vercel URL (placeholder page is fine)
 - [ ] API is live on a Fly.io URL and `/health` returns 200
 - [ ] Supabase project exists, `DATABASE_URL` confirmed working
-- [ ] Upstash Redis project exists (not yet used — just provisioned)
+- [ ] Qwen key set on Fly, or knowingly left off
 - [ ] Sentry DSN captured (SDK wiring can follow once you're testing against it)
 
 Once every box above is checked, Phase 0 is genuinely done — not "code is written," but

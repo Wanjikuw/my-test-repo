@@ -25,6 +25,8 @@ export type Annotation = 'flagged' | 'noted' | 'clean' | 'unread';
 export interface AnnotatedName {
   /** The text as printed on the label. */
   printed: string;
+  /** Zero-based index of the printed entry. */
+  position: number;
   /** The INCI name it resolved to, where that differs from what was printed. */
   resolved: string | null;
   annotation: Annotation;
@@ -46,11 +48,11 @@ export interface AnnotatedName {
  * in the interface could disagree with the verdict shown beside it. The categories are
  * still displayed, but as a record of what is known, never as a verdict of our own.
  *
- * Order is recovered by finding each printed name in the original text, because the
- * response reports matched and unmatched separately. Anything not found sorts last, which
- * only happens if the text changed after it was submitted.
+ * Both lists arrive in printed order with their positions, so one merge rebuilds the
+ * label: no search of the text, which put `Oil` wherever the first name containing it
+ * sat, and no sort.
  */
-export function annotate(label: string, result: AnalyzeResponse): AnnotatedName[] {
+export function annotate(result: AnalyzeResponse): AnnotatedName[] {
   const reasonsFor = new Map<string, Explanation[]>();
   for (const explanation of result.explanations) {
     const existing = reasonsFor.get(explanation.ingredientName);
@@ -58,45 +60,58 @@ export function annotate(label: string, result: AnalyzeResponse): AnnotatedName[
     else reasonsFor.set(explanation.ingredientName, [explanation]);
   }
 
-  const names: AnnotatedName[] = [
-    ...result.matched.map((match): AnnotatedName => {
-      const reasons = reasonsFor.get(match.inciName) ?? [];
-      const onRecord = match.riskCategories.length > 0 || match.regulatoryStatus !== 'none';
-      // The Glossary prints its names in capitals, so an exact comparison would render
-      // `Glycerin -> GLYCERIN` and present it as though it were information.
-      const differsBeyondCase = match.inciName.toLowerCase() !== match.matchedFrom.toLowerCase();
-      return {
-        printed: match.matchedFrom,
-        resolved: differsBeyondCase ? match.inciName : null,
-        annotation: reasons.length > 0 ? 'flagged' : onRecord ? 'noted' : 'clean',
-        strategy: match.strategy,
-        riskCategories: match.riskCategories,
-        regulatoryStatus: match.regulatoryStatus,
-        reasons,
-        // An identity-only row cites the Glossary at paragraph length and says nothing
-        // about risk, so it is not worth repeating under every benign ingredient.
-        citation: onRecord ? match.sourceCitation : null,
-        suggestions: [],
-      };
-    }),
-    ...result.unmatched.map((entry): AnnotatedName => ({
-      printed: entry.rawText,
-      resolved: null,
-      annotation: 'unread',
-      strategy: null,
-      riskCategories: [],
-      regulatoryStatus: 'none',
-      reasons: reasonsFor.get(entry.rawText) ?? [],
-      citation: null,
-      suggestions: entry.suggestions,
-    })),
-  ];
+  const matched = result.matched.map((match): AnnotatedName => {
+    const reasons = reasonsFor.get(match.inciName) ?? [];
+    const onRecord = match.riskCategories.length > 0 || match.regulatoryStatus !== 'none';
+    // The Glossary prints its names in capitals, so an exact comparison would render
+    // `Glycerin -> GLYCERIN` and present it as though it were information.
+    const differsBeyondCase = match.inciName.toLowerCase() !== match.matchedFrom.toLowerCase();
+    return {
+      printed: match.matchedFrom,
+      position: match.position,
+      resolved: differsBeyondCase ? match.inciName : null,
+      annotation: reasons.length > 0 ? 'flagged' : onRecord ? 'noted' : 'clean',
+      strategy: match.strategy,
+      riskCategories: match.riskCategories,
+      regulatoryStatus: match.regulatoryStatus,
+      reasons,
+      // An identity-only row cites the Glossary at paragraph length and says nothing
+      // about risk, so it is not worth repeating under every benign ingredient.
+      citation: onRecord ? match.sourceCitation : null,
+      suggestions: [],
+    };
+  });
 
-  const positionOf = (name: AnnotatedName) => {
-    const at = label.indexOf(name.printed);
-    return at === -1 ? Number.MAX_SAFE_INTEGER : at;
-  };
-  return names.sort((a, b) => positionOf(a) - positionOf(b));
+  const unread = result.unmatched.map((entry): AnnotatedName => ({
+    printed: entry.rawText,
+    position: entry.position,
+    resolved: null,
+    annotation: 'unread',
+    strategy: null,
+    riskCategories: [],
+    regulatoryStatus: 'none',
+    reasons: reasonsFor.get(entry.rawText) ?? [],
+    citation: null,
+    suggestions: entry.suggestions,
+  }));
+
+  // On a tie — one entry printed under several names — the match comes first and the part
+  // that could not be read follows it.
+  const merged: AnnotatedName[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < matched.length || j < unread.length) {
+    const next = matched[i];
+    const other = unread[j];
+    if (next && (!other || next.position <= other.position)) {
+      merged.push(next);
+      i++;
+    } else if (other) {
+      merged.push(other);
+      j++;
+    }
+  }
+  return merged;
 }
 
 /** Noun phrases for display. Exhaustive, so adding a category fails the build here. */

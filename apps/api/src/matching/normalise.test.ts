@@ -74,6 +74,75 @@ describe('parseIngredientList', () => {
   });
 });
 
+describe('parseIngredientList — label furniture', () => {
+  // Without this the first name reads `Ingredients: Aqua` and never matches.
+  it('drops the heading and everything printed before it', () => {
+    expect(parseIngredientList('Hydrating cream 50 ml. INGREDIENTS: Aqua, Glycerin')).toEqual([
+      'Aqua',
+      'Glycerin',
+    ]);
+  });
+
+  it('reads a bilingual heading', () => {
+    expect(parseIngredientList('Ingredients/Ingrédients: Aqua, Glycerin')).toEqual([
+      'Aqua',
+      'Glycerin',
+    ]);
+  });
+
+  it('treats a later heading as the list repeated, not as a name', () => {
+    expect(parseIngredientList('Ingredients: Aqua, Glycerin. Zutaten: Aqua')).toEqual([
+      'Aqua',
+      'Glycerin',
+      'Aqua',
+    ]);
+  });
+
+  it('drops a heading OCR printed without its colon, where it opens the text', () => {
+    expect(parseIngredientList('Ingredients Aqua, Glycerin')).toEqual(['Aqua', 'Glycerin']);
+  });
+
+  it('unpacks a may-contain block into the shades it lists', () => {
+    expect(parseIngredientList('Mica, Talc [+/- CI 77491, CI 77492, CI 77499]')).toEqual([
+      'Mica',
+      'Talc',
+      'CI 77491',
+      'CI 77492',
+      'CI 77499',
+    ]);
+    expect(parseIngredientList('Talc, May contain: CI 77891, (+/-) CI 77007')).toEqual([
+      'Talc',
+      'CI 77891',
+      'CI 77007',
+    ]);
+  });
+
+  it('drops a concentration printed after a name', () => {
+    expect(parseIngredientList('Niacinamide 10%, Zinc PCA (1%), Aqua')).toEqual([
+      'Niacinamide',
+      'Zinc PCA',
+      'Aqua',
+    ]);
+  });
+
+  it('splits on bullets and full-width commas as well', () => {
+    expect(parseIngredientList('Aqua • Glycerin · Squalane，Tocopherol')).toEqual([
+      'Aqua',
+      'Glycerin',
+      'Squalane',
+      'Tocopherol',
+    ]);
+  });
+
+  it('drops list bullets printed ahead of a name', () => {
+    expect(parseIngredientList('- Aqua\n* Glycerin')).toEqual(['Aqua', 'Glycerin']);
+  });
+
+  it('keeps a chemical name whose hyphen opens a locant', () => {
+    expect(parseIngredientList('Aqua, 1,2-Hexanediol')).toEqual(['Aqua', '1,2-Hexanediol']);
+  });
+});
+
 describe('normaliseInciName', () => {
   it('is case- and whitespace-insensitive', () => {
     expect(normaliseInciName('  SODIUM   Lauryl Sulfate ')).toBe('sodium lauryl sulfate');
@@ -127,6 +196,10 @@ describe('spelling canonicalisation', () => {
 
   it('folds the same way from either direction, so the index and query agree', () => {
     expect(normaliseInciName('Sulphate')).toBe(normaliseInciName('Sulfate'));
+  });
+
+  it('folds the sulpho- compounds too, not only sulphate', () => {
+    expect(normaliseInciName('Sodium Lauryl Sulphoacetate')).toBe('sodium lauryl sulfoacetate');
   });
 });
 

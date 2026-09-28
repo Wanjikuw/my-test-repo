@@ -1,3 +1,5 @@
+import type { Suggestion } from '@allergy-checker/shared';
+
 /**
  * Fuzzy candidate search, for OCR slips and typing errors.
  *
@@ -7,36 +9,58 @@
  * able to silently move a product from Safe to Avoid, or the reverse.
  */
 
+const UNREACHABLE = 1 << 20;
+
+// Two reusable rows. This runs against thousands of candidates per unrecognised name, and
+// allocating a row per character per candidate was most of its cost.
+let previous = new Int32Array(256);
+let current = new Int32Array(256);
+
 /**
- * Levenshtein distance, abandoned early once it provably exceeds `limit`.
+ * Levenshtein distance within `limit`, or `limit + 1` once it provably exceeds it.
  *
- * The bail-out matters because this runs against every indexed name for every
- * unrecognised token on a label.
+ * Only the diagonal band of width `2 × limit + 1` is computed, because a cell further
+ * from the diagonal than `limit` already costs more than `limit` edits. That makes one
+ * comparison O(limit × length) rather than O(length²), and it still abandons a row as
+ * soon as no cell in it can come back under the limit.
  */
 export function boundedEditDistance(a: string, b: string, limit: number): number {
   if (a === b) return 0;
-  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  const n = a.length;
+  const m = b.length;
+  if (Math.abs(n - m) > limit) return limit + 1;
 
-  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  if (m + 2 > previous.length) {
+    previous = new Int32Array(m + 2);
+    current = new Int32Array(m + 2);
+  }
 
-  for (let i = 1; i <= a.length; i++) {
-    const current = [i];
-    let rowMin = i;
+  for (let j = 0; j <= m + 1; j++) previous[j] = j <= limit ? j : UNREACHABLE;
 
-    for (let j = 1; j <= b.length; j++) {
-      const substitution = previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1);
-      const insertion = current[j - 1]! + 1;
+  for (let i = 1; i <= n; i++) {
+    const from = Math.max(1, i - limit);
+    const to = Math.min(m, i + limit);
+    current[from - 1] = from === 1 ? i : UNREACHABLE;
+    if (to < m) current[to + 1] = UNREACHABLE;
+
+    const code = a.charCodeAt(i - 1);
+    // Column 0 is a real cell whenever the band reaches it, and may be the row's minimum.
+    let rowMin = from === 1 ? i : UNREACHABLE;
+    for (let j = from; j <= to; j++) {
+      const substitution = previous[j - 1]! + (code === b.charCodeAt(j - 1) ? 0 : 1);
       const deletion = previous[j]! + 1;
-      const best = Math.min(substitution, insertion, deletion);
-      current.push(best);
+      const insertion = current[j - 1]! + 1;
+      const best = Math.min(substitution, deletion, insertion);
+      current[j] = best;
       if (best < rowMin) rowMin = best;
     }
 
     if (rowMin > limit) return limit + 1;
-    previous = current;
+    [previous, current] = [current, previous];
   }
 
-  return previous[b.length]!;
+  const distance = previous[m]!;
+  return distance > limit ? limit + 1 : distance;
 }
 
 /**
@@ -49,39 +73,29 @@ export function distanceBudget(name: string): number {
   return 2;
 }
 
-export interface Suggestion {
-  /** The unrecognised text as printed on the label. */
-  rawText: string;
-  /** INCI name of the ingredient we think was intended. */
-  candidate: string;
-  distance: number;
-}
-
 /**
  * Best candidates for one unrecognised name, nearest first. Returns nothing when the
  * budget is zero, rather than offering a guess we cannot stand behind.
  */
 export function suggestFor(
-  rawText: string,
   normalisedQuery: string,
-  candidates: Iterable<readonly [string, string]>,
+  candidates: Iterable<readonly [key: string, inciName: string]>,
+  limit = distanceBudget(normalisedQuery),
   maxSuggestions = 3,
 ): Suggestion[] {
-  const limit = distanceBudget(normalisedQuery);
   if (limit === 0) return [];
 
-  const found: Suggestion[] = [];
-  const seen = new Set<string>();
-
+  // Several keys can belong to one ingredient; it is offered once, at its nearest.
+  const nearest = new Map<string, number>();
   for (const [key, inciName] of candidates) {
     const distance = boundedEditDistance(normalisedQuery, key, limit);
     if (distance > limit || distance === 0) continue;
-    if (seen.has(inciName)) continue;
-    seen.add(inciName);
-    found.push({ rawText, candidate: inciName, distance });
+    const seen = nearest.get(inciName);
+    if (seen === undefined || distance < seen) nearest.set(inciName, distance);
   }
 
-  return found
+  return [...nearest]
+    .map(([candidate, distance]) => ({ candidate, distance }))
     .sort((x, y) => x.distance - y.distance || x.candidate.localeCompare(y.candidate))
     .slice(0, maxSuggestions);
 }

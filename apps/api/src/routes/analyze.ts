@@ -7,7 +7,6 @@ import {
   SunExposure,
   type AnalyzeResponse,
   type MatchedIngredient,
-  type Suggestion,
 } from '@allergy-checker/shared';
 import type { MatchingContext } from '../matching/context';
 import { analyseNames, type LabelAnalysis } from '../matching/matcher';
@@ -51,45 +50,34 @@ export type AnalyzeBody = z.infer<typeof AnalyzeBody>;
 /**
  * Provenance and suggestions are kept out of `MatchResult` so that no fuzzy guess can
  * reach the scoring rules. They are folded back in here, where the only thing at stake is
- * how the answer is explained.
+ * how the answer is explained. Both side arrays run parallel to the lists they describe,
+ * so this is a single pass with no lookups.
  */
 export function buildAnalyzeResponse(
   analysis: LabelAnalysis,
   context: MatchingContext,
 ): AnalyzeResponse {
-  const scored = score(analysis.result);
-  const originByName = new Map(analysis.provenance.map((entry) => [entry.inciName, entry]));
-
-  const suggestionsByRawText = new Map<string, Suggestion[]>();
-  for (const suggestion of analysis.suggestions) {
-    const existing = suggestionsByRawText.get(suggestion.rawText);
-    const entry = { candidate: suggestion.candidate, distance: suggestion.distance };
-    if (existing) existing.push(entry);
-    else suggestionsByRawText.set(suggestion.rawText, [entry]);
-  }
+  const { result, provenance, unrecognised } = analysis;
+  const scored = score(result);
 
   return {
     tier: scored.tier,
     explanations: scored.explanations,
     profile: {
-      skinType: analysis.result.skinType,
-      sunExposure: analysis.result.sunExposure,
+      skinType: result.skinType,
+      sunExposure: result.sunExposure,
+      unresolvedAllergies: analysis.unresolvedAllergies,
     },
-    matched: analysis.result.matches.map((match): MatchedIngredient => {
-      const origin = originByName.get(match.inciName);
-      return {
-        ...match,
-        matchedFrom: origin?.rawText ?? match.inciName,
-        strategy: origin?.strategy ?? 'exact',
-      };
-    }),
-    unmatched: analysis.result.unmatched.map((entry) => ({
-      rawText: entry.rawText,
-      suggestions: suggestionsByRawText.get(entry.rawText) ?? [],
+    matched: result.matches.map((match, i): MatchedIngredient => ({
+      ...match,
+      matchedFrom: provenance[i]?.rawText ?? match.inciName,
+      strategy: provenance[i]?.strategy ?? 'exact',
+      position: provenance[i]?.position ?? i,
     })),
-    coverage: coverageOf(analysis.result.matches.length, analysis.result.unmatched.length),
+    unmatched: unrecognised,
+    coverage: coverageOf(result.matches.length, result.unmatched.length),
     corpus: {
-      ingredientCount: context.ingredientCount,
+      ingredientCount: context.records.length,
       loadedAt: context.loadedAt.toISOString(),
     },
   };

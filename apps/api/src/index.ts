@@ -6,10 +6,13 @@ import Fastify, {
 } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import { config as loadEnvFile } from 'dotenv';
 import { healthRoutes } from './routes/health';
 import { analyzeRoutes } from './routes/analyze';
 import { ingredientRoutes } from './routes/ingredients';
-import type { LoadContext } from './routes/support';
+import { assistRoutes } from './routes/assist';
+import { loadContextLazily, type LoadContext } from './routes/support';
+import type { QwenConfig } from './assist/qwen';
 import { captureServerError, initObservability } from './observability';
 
 export interface RateLimitSettings {
@@ -23,6 +26,10 @@ export interface ServerOptions {
   rateLimit?: RateLimitSettings | false;
   /** Overrides the database-backed corpus, so the whole server can be exercised without one. */
   loadContext?: LoadContext;
+  /** Overrides the env-derived Qwen settings. `null` switches the model-assisted routes off. */
+  qwen?: QwenConfig | null;
+  /** Stands in for the network on the model-assisted routes, so tests never call Qwen. */
+  fetch?: typeof fetch;
 }
 
 /**
@@ -107,15 +114,30 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   await server.register(healthRoutes);
   await server.register(analyzeRoutes, routeOptions);
   await server.register(ingredientRoutes, routeOptions);
+  await server.register(assistRoutes, {
+    loadContext: options.loadContext,
+    qwen: options.qwen,
+    fetch: options.fetch,
+  });
 
   return server;
 }
 
 async function main() {
+  // Read before anything consults process.env. Deployed machines ship no .env file, so
+  // there this is a no-op and the platform's secrets are what is read.
+  loadEnvFile({ path: ['.env', '../../.env'] });
   initObservability();
   const server = await buildServer();
   const port = Number(process.env.PORT ?? 3001);
   await server.listen({ port, host: '0.0.0.0' });
+
+  // Build the index now rather than on the first request, so a cold machine answers its
+  // first user at warm speed and a bad DATABASE_URL shows up in the boot log.
+  loadContextLazily().then(
+    (context) => server.log.info({ ingredients: context.records.length }, 'corpus loaded'),
+    (err: unknown) => server.log.error({ err }, 'corpus load failed'),
+  );
 }
 
 // Guarded so importing buildServer in a test does not start a listening server.

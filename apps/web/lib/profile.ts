@@ -9,15 +9,22 @@ import type { SkinType, SunExposure } from '@allergy-checker/shared';
  *
  * Deliberately not behind an account: someone in a shop with a bottle in their hand will
  * not sign up first, and the analysis needs nothing we would have to store to work.
+ *
+ * `ocrReader` rides along because it is the same kind of thing — a local preference — and
+ * defaults to the on-device reader, so no photograph leaves the phone unless asked.
  */
+export type OcrReader = 'device' | 'remote';
+
 interface ProfileState {
   skinType: SkinType | null;
   sunExposure: SunExposure | null;
   declaredAllergies: string[];
+  ocrReader: OcrReader;
   setSkinType: (skinType: SkinType | null) => void;
   setSunExposure: (sunExposure: SunExposure | null) => void;
   addAllergy: (name: string) => void;
   removeAllergy: (name: string) => void;
+  setOcrReader: (reader: OcrReader) => void;
 }
 
 export const useProfile = create<ProfileState>()(
@@ -26,8 +33,10 @@ export const useProfile = create<ProfileState>()(
       skinType: null,
       sunExposure: null,
       declaredAllergies: [],
+      ocrReader: 'device',
       setSkinType: (skinType) => set({ skinType }),
       setSunExposure: (sunExposure) => set({ sunExposure }),
+      setOcrReader: (ocrReader) => set({ ocrReader }),
       addAllergy: (name) =>
         set((state) => {
           const trimmed = name.trim();

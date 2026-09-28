@@ -32,10 +32,6 @@ export function initObservability(env: ObservabilityEnv = process.env): boolean 
   return true;
 }
 
-export function isObservabilityEnabled(): boolean {
-  return enabled;
-}
-
 /**
  * Reports a server-side failure. Client errors are deliberately not sent: a 400 describes
  * the caller's input, and reporting those would bury real defects in noise.
