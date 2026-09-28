@@ -7,7 +7,7 @@ The two pins that matter and must not drift:
 
 | Tool    | Version   | Source of truth                    |
 | ------- | --------- | ---------------------------------- |
-| Node.js | `20.20.2` | `.nvmrc`                           |
+| Node.js | `22.23.2` | `.nvmrc`                           |
 | pnpm    | `9.12.0`  | `packageManager` in `package.json` |
 
 Anything else risks a lockfile diff or a CI-vs-local mismatch, both of which this project
@@ -27,9 +27,9 @@ winget install --id CoreyButler.NVMforWindows -e --source winget
 Reopen PowerShell so `PATH` picks up the new entries, then:
 
 ```powershell
-nvm install 20.20.2
-nvm use 20.20.2
-node --version          # expect v20.20.2
+nvm install 22.23.2
+nvm use 22.23.2
+node --version          # expect v22.23.2
 ```
 
 No `winget`? Git is at git-scm.com and nvm-windows is on its GitHub releases page.
@@ -105,7 +105,7 @@ Values that must be supplied by hand — the rest have working local defaults:
 | `SUPABASE_SERVICE_ROLE_KEY`     | api     | Server-side only. Never prefix `NEXT_PUBLIC_` — it bypasses RLS                                                                                                           |
 | `NEXT_PUBLIC_SUPABASE_URL`      | web     | Browser-visible                                                                                                                                                           |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web     | Browser-visible                                                                                                                                                           |
-| `REDIS_URL`                     | api     | Optional — no consumer yet                                                                                                                                                |
+| `QWEN_API_KEY`                  | api     | Optional — remote OCR and model notes are off when empty. Server-side only; never `NEXT_PUBLIC_`                                                                          |
 | `SENTRY_DSN`                    | api     | Optional — reporting is skipped when empty, so local dev stays offline                                                                                                    |
 
 Send credentials through a password manager or a secrets store. Not chat, not email.

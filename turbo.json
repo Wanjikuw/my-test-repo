@@ -10,7 +10,8 @@
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "NEXT_PUBLIC_API_URL",
         "SENTRY_DSN",
-        "SENTRY_ENVIRONMENT"
+        "SENTRY_ENVIRONMENT",
+        "VERCEL_ENV"
       ],
       "outputs": [".next/**", "dist/**", "!.next/cache/**"]
     },

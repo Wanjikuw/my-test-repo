@@ -335,6 +335,26 @@ labelling name — entry 366 covers ten `Rosa *` names that must all resolve to
 `Rose Flower Oil/Extract`. The dataset stores those in `aliases`, and a test asserts no
 alias collides with another entry's primary name.
 
+**Amended 26 Sep 2026 — matching only; Section 4.2 and `score()` are unchanged.**
+
+- The parser drops label furniture before splitting: a leading `Ingredients:` heading and
+  everything printed before it (bilingual headings included), `[+/- …]` and `May contain:`
+  markers, trailing concentrations such as `Niacinamide 4%`, and list bullets.
+- An entry printed under several slash-separated names, `Aqua/Water/Eau`, resolves when at
+  least one part does and no two parts name different ingredients. Parts that resolve to
+  nothing are still reported as unmatched, so `Eau` is shown as unchecked rather than
+  absorbed. Refused for polymer and glyceride names, where the slash joins the parts of one
+  substance, and never tried when the whole name resolves.
+- `userDeclaredAllergyMatch` is no longer only an exact hit. A declared allergy flags every
+  ingredient printing that exact name **and** whatever the name resolves to under the rules
+  a label gets, so `Cocoa Seed Butter` declared matches `Theobroma Cacao (Cocoa) Seed
+Butter` printed. Widening it errs towards a false alarm, never a missed allergen. A
+  declared allergy that resolves to nothing is reported back to the user, because an
+  allergy that can never fire is otherwise indistinguishable from one that did not.
+- Model output never enters matching. Qwen OCR text lands in the editable label, and a
+  model note's proposed INCI name reaches the verdict only if the user substitutes it and
+  the label is checked again against the cited data.
+
 ### 4.2 Result tiers and precedence
 
 Four tiers, severity ordered:

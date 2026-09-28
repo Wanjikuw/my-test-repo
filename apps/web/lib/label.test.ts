@@ -1,5 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { addIngredient } from './label';
+import { addIngredient, replaceName } from './label';
+
+describe('replaceName', () => {
+  it('replaces a whole entry, never a name inside a longer one', () => {
+    expect(replaceName('Coconut Oil, Oil, Aqua', 'Oil', 'OLEA EUROPAEA FRUIT OIL')).toEqual({
+      label: 'Coconut Oil, OLEA EUROPAEA FRUIT OIL, Aqua',
+      replaced: true,
+    });
+  });
+
+  it('replaces one part of a name printed with slashes', () => {
+    expect(replaceName('Aqua/Water/Eau, Glycerin', 'Eau', 'AQUA').label).toBe(
+      'Aqua/Water/AQUA, Glycerin',
+    );
+  });
+
+  it('matches through whitespace the API collapsed before reporting the name', () => {
+    expect(replaceName('Retinal   HPR,\nAqua', 'Retinal HPR', 'X').label).toBe('X,\nAqua');
+  });
+
+  it('keeps what was printed after the name, such as a concentration', () => {
+    expect(replaceName('Niacinamide 10%, Aqua', 'Niacinamide', 'NIACINAMIDE').label).toBe(
+      'NIACINAMIDE 10%, Aqua',
+    );
+  });
+
+  it('does not treat a longer colour index as the shorter one', () => {
+    expect(replaceName('CI 77491, CI 7749', 'CI 7749', 'X').label).toBe('CI 77491, X');
+  });
+
+  it('is not thrown by regex characters in the name', () => {
+    expect(replaceName('Aqua, Hexa(nediol', 'Hexa(nediol', 'X').label).toBe('Aqua, X');
+  });
+
+  it('says so when the name is no longer on the label', () => {
+    expect(replaceName('Aqua, Glycerin', 'Xyzzyne', 'X')).toEqual({
+      label: 'Aqua, Glycerin',
+      replaced: false,
+    });
+  });
+});
 
 describe('addIngredient', () => {
   it('starts the label when there is nothing on it', () => {

@@ -4,11 +4,28 @@ import {
   analyseNames,
   buildIngredientIndex,
   lookup,
-  matchLabel,
-  matchNames,
+  lookupAlternateNames,
+  resolveDeclaredAllergies,
+  type IngredientIndex,
   type IngredientRecord,
+  type MatchOptions,
   type SensitivityRule,
 } from './matcher';
+import { parseIngredientList } from './normalise';
+
+const matchNames = (
+  names: string[],
+  index: IngredientIndex,
+  rules: SensitivityRule[],
+  options: MatchOptions,
+) => analyseNames(names, index, rules, options).result;
+
+const matchLabel = (
+  label: string,
+  index: IngredientIndex,
+  rules: SensitivityRule[],
+  options: MatchOptions,
+) => matchNames(parseIngredientList(label), index, rules, options);
 
 const ingredient = (over: Partial<IngredientRecord> & { id: string; inciName: string }) =>
   ({
@@ -239,7 +256,7 @@ describe('common name printed alone', () => {
 describe('fuzzy suggestions', () => {
   it('are withheld unless the caller asks for them', () => {
     const analysis = analyseNames(['Linalol'], INDEX, RULES, { skinType: null });
-    expect(analysis.suggestions).toEqual([]);
+    expect(analysis.unrecognised[0]?.suggestions).toEqual([]);
   });
 
   it('recover a likely OCR slip', () => {
@@ -247,7 +264,7 @@ describe('fuzzy suggestions', () => {
       skinType: null,
       suggestUnmatched: true,
     });
-    expect(analysis.suggestions[0]?.candidate).toBe('Linalool');
+    expect(analysis.unrecognised[0]?.suggestions[0]?.candidate).toBe('Linalool');
   });
 
   // The safety property the whole design turns on.
@@ -256,10 +273,114 @@ describe('fuzzy suggestions', () => {
       skinType: 'sensitive',
       suggestUnmatched: true,
     });
-    expect(analysis.suggestions.length).toBeGreaterThan(0);
+    expect(analysis.unrecognised[0]?.suggestions.length).toBeGreaterThan(0);
     expect(analysis.result.matches).toEqual([]);
     expect(analysis.result.unmatched.map((u) => u.rawText)).toEqual(['Linalol']);
     expect(score(analysis.result).tier).toBe('UnverifiedCaution');
+  });
+});
+
+describe('printed positions', () => {
+  // The interface rebuilds the label from these, so they must survive the split into
+  // matched and unmatched rather than being re-derived by searching the text.
+  it('records where each entry sat on the label', () => {
+    const analysis = analyseNames(['Squalane', 'Linalool', 'Xyzzyne', 'Jojoba Oil'], INDEX, RULES, {
+      skinType: null,
+    });
+    expect(analysis.provenance.map((p) => [p.inciName, p.position])).toEqual([
+      ['Linalool', 1],
+      ['Simmondsia Chinensis Seed Oil', 3],
+    ]);
+    expect(analysis.unrecognised.map((u) => [u.rawText, u.position])).toEqual([
+      ['Squalane', 0],
+      ['Xyzzyne', 2],
+    ]);
+  });
+
+  it('keeps the side arrays parallel to the lists the scoring engine sees', () => {
+    const analysis = analyseNames(['Linalool', 'Squalane', 'SLS'], INDEX, RULES, {
+      skinType: null,
+    });
+    expect(analysis.provenance).toHaveLength(analysis.result.matches.length);
+    expect(analysis.unrecognised).toHaveLength(analysis.result.unmatched.length);
+  });
+});
+
+describe('names printed with a slash', () => {
+  const AQUA = ingredient({ id: 'aqua', inciName: 'Aqua', aliases: ['Water'] });
+  const PARFUM = ingredient({ id: 'parfum', inciName: 'Parfum' });
+  const CAPRYLIC = ingredient({ id: 'cct', inciName: 'Caprylic/Capric Triglyceride' });
+  const index = buildIngredientIndex([AQUA, PARFUM, CAPRYLIC, LINALOOL]);
+
+  it('resolves one ingredient printed under several names', () => {
+    const analysis = analyseNames(['Aqua/Water/Eau'], index, RULES, { skinType: null });
+    expect(analysis.result.matches.map((m) => m.inciName)).toEqual(['Aqua']);
+    expect(analysis.provenance[0]?.strategy).toBe('alternate-name');
+    expect(analysis.provenance[0]?.rawText).toBe('Aqua/Water/Eau');
+  });
+
+  // `Eau` is probably water, but nothing in the data says so. It is reported, not assumed.
+  it('still reports a part that resolved to nothing', () => {
+    const analysis = analyseNames(['Aqua/Water/Eau'], index, RULES, { skinType: null });
+    expect(analysis.unrecognised.map((u) => [u.rawText, u.position])).toEqual([['Eau', 0]]);
+    expect(score(analysis.result).tier).toBe('UnverifiedCaution');
+  });
+
+  it('refuses to choose when the parts name different ingredients', () => {
+    expect(lookupAlternateNames(index, 'Parfum/Linalool')).toBeUndefined();
+  });
+
+  it('never splits a name the index already holds whole', () => {
+    const analysis = analyseNames(['Caprylic/Capric Triglyceride'], index, RULES, {
+      skinType: null,
+    });
+    expect(analysis.provenance[0]?.strategy).toBe('exact');
+  });
+
+  // A slash inside a polymer or glyceride name joins the parts of one substance.
+  it('does not split a compound name the index lacks', () => {
+    expect(lookupAlternateNames(index, 'Aqua/Acrylates Crosspolymer')).toBeUndefined();
+    expect(lookupAlternateNames(index, 'Caprylic/Capric/Succinic Triglyceride')).toBeUndefined();
+  });
+});
+
+describe('declared allergies', () => {
+  it('reports a declared allergy that names nothing, so it cannot fail in silence', () => {
+    const allergies = resolveDeclaredAllergies(INDEX, ['Linalool', 'Nuts']);
+    expect(allergies.unresolved).toEqual(['Nuts']);
+    expect([...allergies.ids]).toEqual(['lin']);
+  });
+
+  it('resolves a declared common name the way a label name would be', () => {
+    const analysis = analyseNames(['Theobroma Cacao (Cocoa) Seed Butter'], INDEX, RULES, {
+      skinType: null,
+      declaredAllergies: ['Cocoa Seed Butter'],
+    });
+    expect(analysis.result.matches[0]?.userDeclaredAllergyMatch).toBe(true);
+    expect(analysis.unresolvedAllergies).toEqual([]);
+  });
+
+  it('flags every ingredient that prints the declared name, not only the key holder', () => {
+    const index = buildIngredientIndex([
+      ingredient({ id: 'a', inciName: 'Alpha Extract', aliases: ['Shared'] }),
+      ingredient({ id: 'b', inciName: 'Beta Extract', aliases: ['Shared'] }),
+    ]);
+    const analysis = analyseNames(['Alpha Extract', 'Beta Extract'], index, RULES, {
+      skinType: null,
+      declaredAllergies: ['shared'],
+    });
+    expect(analysis.result.matches.map((m) => m.userDeclaredAllergyMatch)).toEqual([true, true]);
+  });
+});
+
+describe('index lookups', () => {
+  it('finds a record by id without scanning', () => {
+    expect(INDEX.byId.get('sls')?.inciName).toBe('Sodium Lauryl Sulfate');
+  });
+
+  it('ranks each key by the position of the record that owns it', () => {
+    const entry = INDEX.byName.get('sls');
+    expect(entry && INDEX.records[entry.rank]?.id).toBe('sls');
   });
 });
 

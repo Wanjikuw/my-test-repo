@@ -56,7 +56,6 @@ function corpus(): MatchingContext {
     index: buildIngredientIndex(records),
     records,
     rules,
-    ingredientCount: records.length,
     loadedAt: new Date('2026-09-14T09:00:00.000Z'),
   };
 }
@@ -163,6 +162,45 @@ describe('POST /analyze', () => {
     const res = await analyse(app, { label: 'Linalol', suggestUnmatched: false });
 
     expect(res.json().unmatched[0].suggestions).toEqual([]);
+  });
+
+  // The interface rebuilds the label in printed order from these. Re-deriving order by
+  // searching the text put `Oil` wherever the first name containing it happened to sit.
+  it('returns every entry with the position it was printed at', async () => {
+    const app = await server();
+    const res = await analyse(app, { label: 'Linalol, Aqua, Linalool' });
+
+    const body = res.json();
+    expect(
+      body.matched.map((m: { inciName: string; position: number }) => [m.inciName, m.position]),
+    ).toEqual([
+      ['Aqua', 1],
+      ['Linalool', 2],
+    ]);
+    expect(
+      body.unmatched.map((u: { rawText: string; position: number }) => [u.rawText, u.position]),
+    ).toEqual([['Linalol', 0]]);
+  });
+
+  // An allergy that names nothing in the data can never fire, and the user must be told.
+  it('says which declared allergies it could not resolve', async () => {
+    const app = await server();
+    const res = await analyse(app, { inciNames: ['Aqua'], declaredAllergies: ['Water', 'Nuts'] });
+
+    expect(res.json().profile.unresolvedAllergies).toEqual(['Nuts']);
+    expect(res.json().tier).toBe('Avoid');
+  });
+
+  it('reads a label pasted together with its heading', async () => {
+    const app = await server();
+    const res = await analyse(app, {
+      label: 'Night cream. INGREDIENTS: Aqua, Linalool',
+      skinType: 'normal',
+    });
+
+    const body = res.json();
+    expect(body.unmatched).toEqual([]);
+    expect(body.tier).toBe('Safe');
   });
 
   // Reporting a label as safe because it could not be read is the worst error available

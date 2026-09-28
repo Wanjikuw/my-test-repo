@@ -46,7 +46,6 @@ function corpus(): MatchingContext {
     index: buildIngredientIndex(records),
     records,
     rules: [],
-    ingredientCount: records.length,
     loadedAt: new Date('2026-09-14T09:00:00.000Z'),
   };
 }

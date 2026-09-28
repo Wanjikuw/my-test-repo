@@ -8,13 +8,18 @@ import type { IngredientMatch, ScoredResult, SkinType, SunExposure } from './sco
 /**
  * How a printed name was resolved, strongest first. Surfaced to the user because a
  * resolution that involved judgement should not be presented as if it were exact.
+ *
+ * `alternate-name` is one entry printed under several names, `Aqua/Water/Eau`, where one
+ * of the slash-separated names resolved and none contradicted it.
  */
-export type MatchStrategy = 'exact' | 'loose' | 'common-name';
+export type MatchStrategy = 'exact' | 'loose' | 'common-name' | 'alternate-name';
 
 export interface MatchedIngredient extends IngredientMatch {
   /** The text as printed on the label, which is often not the INCI name it resolved to. */
   matchedFrom: string;
   strategy: MatchStrategy;
+  /** Zero-based index of the printed entry, so the list can be rebuilt in printed order. */
+  position: number;
 }
 
 export interface Suggestion {
@@ -24,6 +29,8 @@ export interface Suggestion {
 
 export interface UnrecognisedIngredient {
   rawText: string;
+  /** Zero-based index of the printed entry it came from. */
+  position: number;
   /** Near-misses, nearest first. Advisory only — these never reached the scoring rules. */
   suggestions: Suggestion[];
 }
@@ -54,6 +61,8 @@ export interface AnalyzeResponse {
   profile: {
     skinType: SkinType | null;
     sunExposure: SunExposure | null;
+    /** Declared allergies that name nothing in the reference data, so rule 2 cannot fire on them. */
+    unresolvedAllergies: string[];
   };
   matched: MatchedIngredient[];
   unmatched: UnrecognisedIngredient[];

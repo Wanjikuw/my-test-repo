@@ -26,7 +26,6 @@ export interface MatchingContext {
    */
   records: IngredientRecord[];
   rules: SensitivityRule[];
-  ingredientCount: number;
   loadedAt: Date;
 }
 
@@ -101,7 +100,6 @@ async function refresh(): Promise<MatchingContext> {
     index: buildIngredientIndex(records),
     records,
     rules,
-    ingredientCount: records.length,
     loadedAt: new Date(),
   };
 }
@@ -125,14 +123,4 @@ export function loadMatchingContext(): Promise<MatchingContext> {
     });
 
   return inflight;
-}
-
-/** Drops the cache so the next read rebuilds. Call after reseeding. */
-export function clearMatchingContext(): void {
-  cached = null;
-}
-
-/** Present only if a load has completed; does not trigger one. */
-export function peekMatchingContext(): MatchingContext | null {
-  return cached;
 }

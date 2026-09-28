@@ -185,10 +185,10 @@ export default function HomePage() {
         <Photograph src="/hero/shore.jpg" tone="shell" saturate={0.3} objectPosition="50% 68%" />
         <Reveal className="relative mx-auto max-w-5xl px-5 py-24 sm:py-32">
           <h2 className="max-w-2xl font-serif text-4xl leading-tight sm:text-5xl">
-            Paste a list, or photograph the back of the bottle.
+            Paste a list, or point the camera at the back of the bottle.
           </h2>
           <p className="mt-5 max-w-lg leading-relaxed text-muted">
-            Reading a photograph happens on your device. Nothing is uploaded, and no account is
+            By default a photograph is read on your device and nothing is uploaded. No account is
             required.
           </p>
           <Link

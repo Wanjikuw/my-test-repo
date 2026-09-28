@@ -1,12 +1,16 @@
 /**
  * Every call the browser makes to the API.
  *
- * `NEXT_PUBLIC_API_URL` is read at module scope so a missing value fails on the first
- * request with a sentence about configuration, rather than as a fetch to `undefined/analyze`.
+ * `NEXT_PUBLIC_API_URL` is inlined at build time. The localhost fallback serves
+ * development only: `next.config.mjs` refuses a Vercel production build without it, so a
+ * deployed bundle can never quietly call a machine that is not there.
  */
 import type {
   AnalyzeResponse,
+  Capabilities,
   IngredientSearchResponse,
+  NotesResponse,
+  OcrResponse,
   SkinType,
   SunExposure,
 } from '@allergy-checker/shared';
@@ -95,4 +99,26 @@ export function searchIngredients(
 ): Promise<IngredientSearchResponse> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   return get<IngredientSearchResponse>(`/ingredients?${params.toString()}`, signal);
+}
+
+export const NO_CAPABILITIES: Capabilities = { remoteOcr: null, modelNotes: null };
+
+/** Which model-assisted features the server has keys for. Anything unreachable reads as none. */
+export async function getCapabilities(signal: AbortSignal): Promise<Capabilities> {
+  try {
+    return await get<Capabilities>('/capabilities', signal);
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+    return NO_CAPABILITIES;
+  }
+}
+
+/** Sends a photograph to the server's remote OCR model. The caller has told the user so. */
+export function readLabelRemotely(imageDataUrl: string): Promise<OcrResponse> {
+  return post<OcrResponse>('/ocr', { image: imageDataUrl });
+}
+
+/** Model notes on names the reference data could not identify. Advisory, never scored. */
+export function describeUnrecognised(names: string[]): Promise<NotesResponse> {
+  return post<NotesResponse>('/notes', { names });
 }

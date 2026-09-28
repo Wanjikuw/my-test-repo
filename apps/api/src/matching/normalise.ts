@@ -38,38 +38,32 @@ const PARENTHETICAL = /\([^)]*\)/g;
  * Orthographic variants only. Genuine synonyms such as Parfum/Fragrance are a data
  * question and belong in an ingredient's `aliases`, not in normalisation — collapsing
  * them here would hide the relationship from anyone reading the dataset.
+ *
+ * One alternation rather than a list of patterns, so a name is scanned once. `sulph`
+ * covers sulphate, sulphite, sulphur and the sulpho- compounds alike.
  */
-const SPELLING_VARIANTS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/sulphate/g, 'sulfate'],
-  [/sulphite/g, 'sulfite'],
-  [/sulphur/g, 'sulfur'],
-  [/aluminium/g, 'aluminum'],
-  [/colour/g, 'color'],
-  [/glycerine/g, 'glycerin'],
-];
+const SPELLING_VARIANT = /sulph|aluminium|colour|glycerine/g;
 
-function canonicaliseSpelling(lowercased: string): string {
-  let out = lowercased;
-  for (const [pattern, replacement] of SPELLING_VARIANTS) out = out.replace(pattern, replacement);
-  return out;
-}
+const SPELLING_FOLD: Readonly<Record<string, string>> = {
+  sulph: 'sulf',
+  aluminium: 'aluminum',
+  colour: 'color',
+  glycerine: 'glycerin',
+};
 
-/** Shared by every form: the transformations that cannot lose information. */
-function baseNormalise(raw: string): string {
-  return canonicaliseSpelling(
-    raw
-      .replace(INVISIBLE, '')
-      .replace(UNICODE_DASHES, '-')
-      .replace(TRAILING_NOISE, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase(),
-  );
-}
-
-/** Primary lookup key. Preserves parentheses, so it cannot collide two chemical names. */
+/**
+ * Primary lookup key: the transformations that cannot lose information. Preserves
+ * parentheses, so it cannot collide two chemical names.
+ */
 export function normaliseInciName(raw: string): string {
-  return baseNormalise(raw);
+  return raw
+    .replace(INVISIBLE, '')
+    .replace(UNICODE_DASHES, '-')
+    .replace(TRAILING_NOISE, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(SPELLING_VARIANT, (variant) => SPELLING_FOLD[variant] ?? variant);
 }
 
 /**
@@ -77,7 +71,7 @@ export function normaliseInciName(raw: string): string {
  * misses, because it can in principle merge two distinct chemicals.
  */
 export function looseInciName(raw: string): string {
-  return baseNormalise(raw.replace(PARENTHETICAL, ' ')).replace(/\s+/g, ' ').trim();
+  return normaliseInciName(raw.replace(PARENTHETICAL, ' '));
 }
 
 /**
@@ -103,25 +97,71 @@ export function commonNameVariant(raw: string): string | null {
   const after = cleaned.slice(close + 1).trim();
   if (!before) return null;
 
-  const variant = baseNormalise(`${insert} ${after}`).replace(/\s+/g, ' ').trim();
+  const variant = normaliseInciName(`${insert} ${after}`);
   return variant.length > 0 ? variant : null;
 }
 
 /**
- * Splits a printed list into individual names.
- *
- * Separators: newlines, semicolons, and commas that are not between two digits. The
- * digit guard is what keeps `1,2-Hexanediol` in one piece.
+ * Label furniture that is not an ingredient. A pasted or photographed list usually
+ * arrives with its heading, and without this the first name reads `Ingredients: Aqua` and
+ * never matches. Everything before the first heading is the front of the pack; a later
+ * heading is the list repeated in another language, so it becomes a separator.
+ */
+const HEADING =
+  /\b(?:ingr[eé]dients?|zutaten|ingredientes|ingredienti|ingredi[eë]nten|composition|inci)\s*[:：]/i;
+const HEADINGS = new RegExp(HEADING.source, 'gi');
+
+/** OCR drops colons. A bare heading word is only trusted where it opens the text. */
+const LEADING_HEADING = /^\s*(?:ingr[eé]dients?|inci)\b[\s:：.-]*/i;
+
+/**
+ * Colour cosmetics print shades that may or may not be present as `[+/- CI 77491,
+ * CI 77492]` or `May contain:`. The marker is not a name, and the bracket must not fuse
+ * the first shade onto it.
+ */
+const MAY_CONTAIN_BLOCK = /\[\s*(?:\+\s*\/\s*-|±|may contain:?|peut contenir:?)\s*([^\]]*)\]/gi;
+const MAY_CONTAIN_MARKER =
+  /\(\s*\+\s*\/\s*-\s*\)|\+\s*\/\s*-|±|\bmay contain\b:?|\bpeut contenir\b:?/gi;
+
+/** A concentration printed after a name, `Niacinamide 10%`. No INCI name ends in one. */
+const TRAILING_PERCENT = /\s*\(?\s*\d+(?:[.,]\d+)?\s*%\s*\)?$/;
+
+/** Bullets and list dashes printed ahead of a name. */
+const LEADING_NOISE = /^(?:[•·*\s]|[-–—]\s)+/;
+
+/**
+ * Newlines, semicolons, bullets, full-width commas, and commas that are not between two
+ * digits. The digit guard is what keeps `1,2-Hexanediol` in one piece.
  *
  * Both sides have to be digits for the guard to hold, hence the two alternatives rather
  * than one lookaround pair. Requiring only that neither side is a digit also swallowed
  * the comma in `CI 77491, CI 77492`, merging a colour-index run into a single name that
  * could never match.
  */
+const SEPARATOR = /(?<!\d),|,(?!\d)|[;\n\r•·，、]+/;
+
+function stripHeadings(text: string): string {
+  const first = HEADING.exec(text);
+  const body = first
+    ? text.slice(first.index + first[0].length)
+    : text.replace(LEADING_HEADING, '');
+  return body.replace(HEADINGS, '\n');
+}
+
+/** Splits a printed list into individual names, in printed order. */
 export function parseIngredientList(label: string): string[] {
-  return label
-    .replace(INVISIBLE, '')
-    .split(/(?<!\d),|,(?!\d)|[;\n\r]+/)
-    .map((part) => part.replace(TRAILING_NOISE, '').replace(/\s+/g, ' ').trim())
+  return stripHeadings(label.replace(INVISIBLE, ''))
+    .replace(MAY_CONTAIN_BLOCK, ',$1,')
+    .replace(MAY_CONTAIN_MARKER, ',')
+    .split(SEPARATOR)
+    .map((part) =>
+      part
+        .replace(LEADING_NOISE, '')
+        .replace(TRAILING_NOISE, '')
+        .replace(TRAILING_PERCENT, '')
+        .replace(TRAILING_NOISE, '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
     .filter((part) => part.length > 0);
 }
