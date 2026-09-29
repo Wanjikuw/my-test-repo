@@ -62,9 +62,9 @@ export function resolveRateLimit(env: NodeJS.ProcessEnv = process.env): RateLimi
 }
 
 /**
- * Behind Fly's proxy every request arrives from the same address, so without this the
- * rate limiter buckets the entire internet together and one busy caller locks out
- * everyone. It stays off by default because trusting forwarding headers when nothing
+ * Behind Render's load balancer every request arrives from the same address, so without
+ * this the rate limiter buckets the entire internet together and one busy caller locks
+ * out everyone. It stays off by default because trusting forwarding headers when nothing
  * sets them lets a caller spoof their own address.
  */
 export function resolveTrustProxy(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -82,7 +82,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     await server.register(rateLimit, {
       max: limits.max,
       timeWindow: limits.timeWindow,
-      // Fly probes health every 15s; a throttled probe would look like an outage.
+      // Render probes health every few seconds; a throttled probe would look like an outage.
       allowList: (request) => request.url === '/health',
     });
   }

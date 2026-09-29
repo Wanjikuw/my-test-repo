@@ -208,33 +208,57 @@ times actually become a problem. Don't spend Phase 0 time on it now.
    build commands — the build runs `pnpm turbo run build --filter=@allergy-checker/web` from
    the repo root, because `@allergy-checker/shared` must be compiled to `dist/` before
    `next build` can resolve it — and `engines` in `apps/web/package.json` selects Node 22.
-3. Add `NEXT_PUBLIC_API_URL` (the Fly URL) for Production and Preview. A production build
-   refuses to run without it. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` or `QWEN_API_KEY`
-   here — neither belongs in a browser bundle.
+3. Add `NEXT_PUBLIC_API_URL` (the Render URL) for Production and Preview. A production build
+   refuses to run without it. Because Next.js inlines `NEXT_PUBLIC_*` at build time,
+   changing this value later requires a **redeploy**, not just an env var edit. Do **not**
+   add `SUPABASE_SERVICE_ROLE_KEY` or `QWEN_API_KEY` here — neither belongs in a browser
+   bundle.
 4. Deploy, then add the production domain to the API's `CORS_ORIGIN`.
 
-### 7. Fly.io (API deployment)
+### 7. Render (API deployment)
 
-1. Install the `flyctl` CLI, run `fly auth login`.
-2. Run `fly launch` **from the repo root**, not from `apps/api` — the Dockerfile needs the
-   whole monorepo as its build context to resolve the pnpm workspace. A `fly.toml` is already
-   committed at the root and already points at port 3001; if `fly launch` offers to overwrite
-   it, decline, and just change the `app` name to whatever Fly assigns you.
-3. Set secrets: `fly secrets set DATABASE_URL=... CORS_ORIGIN=https://<vercel-domain> QWEN_API_KEY=... SENTRY_DSN=...`
+`render.yaml` at the repo root describes this service, so the fastest path is a Blueprint;
+the dashboard equivalents are given in case you'd rather click through it.
+
+1. In the Render dashboard choose **New > Blueprint** and pick this repo. Render reads
+   `render.yaml` and proposes one web service on the Free plan in Frankfurt.
+2. If you create the service by hand instead, the settings that matter are: **Language**
+   `Docker`, **Root Directory** left _blank_, **Dockerfile Path** `apps/api/Dockerfile`,
+   **Docker Build Context Directory** `.`, and **Health Check Path** `/health`. The root
+   directory must stay empty — the Dockerfile needs the whole monorepo as its build
+   context to resolve the pnpm workspace, and Render makes nothing outside the root
+   directory available at build time.
+3. Set the environment variables Render prompts for (they are declared `sync: false` in
+   `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`,
+   `CORS_ORIGIN=https://<vercel-domain>`, and optionally `QWEN_API_KEY` and `SENTRY_DSN`.
    `CORS_ORIGIN` is not optional: in production the API refuses to start without it rather
-   than reflect any origin. (`NODE_ENV`, `PORT` and `TRUST_PROXY` are already in `fly.toml`.)
-4. Deploy with `fly deploy`.
-5. Confirm `https://<your-app>.fly.dev/health` returns `{"status":"ok",...}` and
-   `/capabilities` names the Qwen models if a key was set.
+   than reflect any origin. `NODE_ENV`, `TRUST_PROXY` and `SENTRY_ENVIRONMENT` come from
+   `render.yaml`. Leave `PORT` unset — Render injects `10000` and the server binds it.
+4. Deploy. Confirm `https://<your-service>.onrender.com/health` returns `{"status":"ok",...}`
+   and `/capabilities` names the Qwen models if a key was set.
+
+Know what the Free plan costs you in behaviour, because none of it is a bug:
+
+- **It spins down after 15 minutes idle and takes about a minute to wake.** The first
+  request after a quiet spell will look like a hang. The server also builds the ingredient
+  index at boot, which adds to that first wait.
+- **0.1 CPU and 512 MB RAM.** The fuzzy matcher is CPU-bound, so expect analysis to be
+  slower than it is locally.
+- **Frankfurt is the closest region on offer** — Render has none in Africa, so Kenyan users
+  pay a round trip to Europe.
+- **No shell access and no one-off jobs.** Run `db:migrate` and the seed scripts from your
+  own machine against Supabase, as section 5 of [CONTRIBUTING.md](CONTRIBUTING.md) describes.
+- **750 instance-hours, bandwidth and build minutes are metered monthly.** Exceeding them
+  without a payment method on file suspends the service until the month rolls over.
 
 ## Definition of done for Phase 0
 
 - [ ] `pnpm install` runs clean locally **and `pnpm-lock.yaml` is committed**
 - [ ] CI is green on a no-op commit
 - [ ] Web app is live on a Vercel URL (placeholder page is fine)
-- [ ] API is live on a Fly.io URL and `/health` returns 200
+- [ ] API is live on a Render URL and `/health` returns 200
 - [ ] Supabase project exists, `DATABASE_URL` confirmed working
-- [ ] Qwen key set on Fly, or knowingly left off
+- [ ] Qwen key set on Render, or knowingly left off
 - [ ] Sentry DSN captured (SDK wiring can follow once you're testing against it)
 
 Once every box above is checked, Phase 0 is genuinely done — not "code is written," but

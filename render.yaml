@@ -1,0 +1,51 @@
+# Blueprint for the API only. The web app is on Vercel and is not described here.
+#
+# Render reads this from the repo root. `rootDir` is deliberately unset so the Docker
+# build context is the whole monorepo — apps/api/Dockerfile needs it to resolve the pnpm
+# workspace, and files outside the root directory are not available at build time.
+services:
+  - type: web
+    name: allergy-checker-api
+    runtime: docker
+    plan: free
+    # Render has no African region. Frankfurt is the closest of the five it offers
+    # (oregon, ohio, virginia, frankfurt, singapore) to the Kenyan users this serves.
+    region: frankfurt
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    # A 2xx within five seconds marks the instance healthy. /health touches no database,
+    # so it answers immediately even while the ingredient index is still loading.
+    healthCheckPath: /health
+    # Paths are relative to the repo root regardless of rootDir. Without these, a commit
+    # touching only apps/web would rebuild this image and burn pipeline minutes.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - tsconfig.base.json
+        - render.yaml
+    envVars:
+      # PORT is deliberately absent: Render injects 10000 and the server reads it. Pinning
+      # a different value here only risks disagreeing with Render's port detection.
+      - key: NODE_ENV
+        value: production
+      # Render terminates TLS at its load balancer and forwards the client address in a
+      # header. Without this the rate limiter buckets every caller under the proxy.
+      # Quoted because the server compares against the string 'true', not a YAML boolean.
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      # `sync: false` keeps the value out of this committed file — set each one in the
+      # Render dashboard. CORS_ORIGIN is not optional: the API refuses to start in
+      # production rather than reflect an arbitrary origin.
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: QWEN_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

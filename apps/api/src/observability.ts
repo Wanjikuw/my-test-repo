@@ -3,9 +3,9 @@ import * as Sentry from '@sentry/node';
 /**
  * Error reporting, off unless a DSN is configured.
  *
- * Without this, an unhandled exception on Fly is written to stdout and lost the next time
- * the machine stops — which, with auto-stop enabled, is minutes later. The DSN gates it so
- * local development and tests stay silent and network-free.
+ * Without this, an unhandled exception in production is written to stdout and lost the
+ * next time the instance stops — which, with idle spin-down, is minutes later. The DSN
+ * gates it so local development and tests stay silent and network-free.
  */
 let enabled = false;
 

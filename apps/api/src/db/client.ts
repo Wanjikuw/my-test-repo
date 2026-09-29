@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
 import { resolvePostgresOptions } from './pooler';
 
-// No-ops in deployed environments (Fly injects real env vars and ships no .env file).
+// No-ops in deployed environments (Render injects real env vars and ships no .env file).
 config({ path: ['.env', '../../.env'] });
 
 if (!process.env.DATABASE_URL) {

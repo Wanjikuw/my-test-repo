@@ -31,15 +31,15 @@ export function resolvePostgresOptions(
   env: PoolEnv = process.env,
 ): Options<Record<string, PostgresType>> {
   const configured = Number(env.DATABASE_POOL_MAX);
-  // Every pooled connection holds a Supabase backend slot, and Fly may run more than one
-  // machine. A request here is a few short queries, so a small pool is ample; ten per
-  // machine was simply more than this workload has ever needed.
+  // Every pooled connection holds a Supabase backend slot, and the host may run more than
+  // one instance. A request here is a few short queries, so a small pool is ample; ten per
+  // instance was simply more than this workload has ever needed.
   const max = Number.isFinite(configured) && configured > 0 ? configured : 5;
 
   return {
     max,
-    // Auto-stopping machines otherwise leave connections parked; releasing them returns
-    // pooler slots to the rest of the fleet.
+    // An instance that spins down on idle otherwise leaves connections parked; releasing
+    // them returns pooler slots to the rest of the fleet.
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: !usesTransactionPooler(databaseUrl),

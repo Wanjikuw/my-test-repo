@@ -7,7 +7,7 @@ FROM node:22.23.2-slim
 WORKDIR /app
 
 # Copy the whole monorepo context so pnpm workspace resolution (workspace:*) works —
-# Fly.io's build context must be the repo root for this Dockerfile to work, not apps/api.
+# the build context must be the repo root for this Dockerfile to work, not apps/api.
 # tsconfig.base.json is required: both package tsconfigs extend it.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json .npmrc ./
 COPY apps/api ./apps/api
@@ -24,5 +24,6 @@ ENV NODE_ENV=production
 USER node
 
 WORKDIR /app/apps/api
+# Informational only: the server binds $PORT, which Render sets to 10000.
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
