@@ -120,7 +120,7 @@ describe('rate limiting', () => {
     expect(third.statusCode).toBe(429);
   });
 
-  // Fly probes health every 15 seconds; a throttled probe would read as an outage.
+  // Render probes health every few seconds; a throttled probe would read as an outage.
   it('never throttles the health check', async () => {
     const server = await buildServer({
       logger: false,

@@ -58,8 +58,8 @@ build all green. End to end against the live corpus, a deliberately messy label 
 14 of 17 names in 15 ms, where before its heading, `Niacinamide 4%`, both slash names and
 the `[+/- CI …]` block were all reported as unrecognised.
 
-The API image builds exactly as Fly will build it and boots on Node 22.23.2. Started with no
-database, it answers `/health` and logs `corpus load failed` at boot, rather than leaving
+The API image builds exactly as Render will build it and boots on Node 22.23.2. Started with
+no database, it answers `/health` and logs `corpus load failed` at boot, rather than leaving
 the misconfiguration for the first user to find.
 
 ### Complexity, stated
@@ -84,16 +84,18 @@ In the order it fails worst if skipped.
 **27 Sep — deploy.**
 
 1. Commit today's work as the conventional commits listed below, push, and see CI green.
-2. API to Fly: `fly launch --no-deploy` from the repo root keeping `fly.toml`, then
-   `fly secrets set DATABASE_URL=… CORS_ORIGIN=https://<vercel-domain> QWEN_API_KEY=…`,
-   `fly deploy`, and check `/health`, `/capabilities` and one `POST /analyze`. Confirm
-   `jnb` is still offered with `fly platform regions` before relying on it.
+2. API to Render: create the service from the committed `render.yaml` Blueprint, set
+   `DATABASE_URL`, `CORS_ORIGIN=https://<vercel-domain>` and `QWEN_API_KEY` in the
+   dashboard (they are `sync: false` so they never enter the repo), deploy, and check
+   `/health`, `/capabilities` and one `POST /analyze`. Frankfurt is the closest region
+   Render offers; it has none in Africa.
 3. Web to Vercel: import the repo, Root Directory `apps/web` (`vercel.json` carries the
    build and install commands, `engines` carries Node 22), set `NEXT_PUBLIC_API_URL` for
    Production and Preview, deploy. Then put the Vercel production domain in `CORS_ORIGIN`.
+   `NEXT_PUBLIC_API_URL` is inlined at build time, so changing it later needs a redeploy.
 4. Qwen: create a Model Studio key in the Singapore region (new accounts get a free quota)
-   and set it only as a Fly secret. OpenRouter's free Qwen models work through the same
-   code by changing `QWEN_BASE_URL` and the two model names.
+   and set it only as a Render environment variable. OpenRouter's free Qwen models work
+   through the same code by changing `QWEN_BASE_URL` and the two model names.
 5. Real devices, over the https Vercel URL — the camera refuses plain http: iOS Safari,
    Android Chrome, one desktop webcam. Both readers, a curved bottle, a flat box.
 
@@ -227,11 +229,11 @@ so 357 labels keep it as an unknown until a source for it exists.
 
 ### Evidence-trail hygiene
 
-| Item                                                              | State                     |
-| ----------------------------------------------------------------- | ------------------------- |
-| Commit log below reconciled to `HEAD`                             | ✅ 15 Sep — 21 rows added |
-| `main` is 10 commits ahead of `origin/main`                       | 🔴 **all of it unpushed** |
-| Phase 0 deploy targets (Fly, Vercel, Upstash) still unprovisioned | unchanged since 6 Aug     |
+| Item                                                                 | State                     |
+| -------------------------------------------------------------------- | ------------------------- |
+| Commit log below reconciled to `HEAD`                                | ✅ 15 Sep — 21 rows added |
+| `main` is 10 commits ahead of `origin/main`                          | 🔴 **all of it unpushed** |
+| Phase 0 deploy targets (Render, Vercel, Upstash) still unprovisioned | unchanged since 6 Aug     |
 
 `annexV.MD` was committed by mistake on 14 Sep and untracked again on 15 Sep. `.gitignore`
 keeps regulation reference copies out of the repo — they are large, redistributable only
@@ -263,10 +265,10 @@ this list is worth less than not losing it. Decide first whether to rewrite hist
 rubric Section 4.1. This is the highest coverage-per-hour left anywhere in the data, and it
 closes Phase 1 properly rather than declaring it closed.
 
-### 3. Deploy the API to Fly — half a day
+### 3. Deploy the API to Render — half a day
 
 Phase 0 has carried this as ⬜ since 6 August. The web app cannot be built against nothing,
-and `fly.toml`, the `Dockerfile` and `TRUST_PROXY` are already in place, so this is
+and `render.yaml`, the `Dockerfile` and `TRUST_PROXY` are already in place, so this is
 configuration rather than construction.
 
 ### 4. Build the web app — the bulk of the remaining time
@@ -366,7 +368,7 @@ A commit cannot cite its own hash, so this table always lags HEAD by one entry.
 | Local CI gauntlet green (format/lint/typecheck/test/build)         | ✅                                    |
 | GitHub Actions workflow present                                    | ✅ green on remote (run 33779752322)  |
 | Supabase project provisioned                                       | ✅ `bjzzivckgjglkxlywbut` (eu-west-2) |
-| Fly.io project + API deployed                                      | ⬜                                    |
+| Render project + API deployed                                      | ⬜                                    |
 | Vercel project + web deployed                                      | ⬜                                    |
 | Upstash Redis provisioned                                          | ⬜                                    |
 | Sentry DSN wired into API and web                                  | ⬜ (no `@sentry/*` dependency yet)    |
@@ -389,7 +391,7 @@ developed inside WSL Ubuntu — not over the `\\wsl.localhost` share.
 | Connection string mis-parsed        | The generated DB password contains a literal `@`, giving the URI authority two `@`     | Percent-encoded the password and appended `sslmode=require`                  |
 
 > ⚠ **Phase 0 is not closeable** until the remaining provisioning rows are done. Supabase
-> is live and migrated, but Fly.io, Vercel, Upstash and Sentry are still unprovisioned.
+> is live and migrated, but Render, Vercel, Upstash and Sentry are still unprovisioned.
 
 ---
 
