@@ -30,8 +30,6 @@ it is all correct first time.
 These are known gaps, not oversights. Each needs real code or a real credential, so they
 belong to the phase that first uses them:
 
-- **Sentry SDK** — no `@sentry/*` dependency yet. Add it when you wire the DSN (Phase 0
-  tail), not before; an unwired SDK is just install weight.
 - **`@fastify/helmet` and `@fastify/rate-limit`** — the API has no auth and no user-facing
   routes yet. Add both in the same PR that adds the first non-`/health` route.
 - **Supabase JWT verification** — `apps/api` connects via `DATABASE_URL` as the table
@@ -173,11 +171,16 @@ single synchronous call, so there is no background work to queue.
 
 ### 4. Sentry
 
-1. Create a project (Node platform for the API; a separate one for the web app if you want
-   frontend error tracking too).
-2. Copy the DSN into `SENTRY_DSN`. Wiring the SDK into `apps/api/src/index.ts` and
-   `apps/web` is a Phase 0 task once you have the DSN — not done in this scaffold since it
-   needs your real key to test against.
+1. Create a project (Node platform for the API; a separate Next.js project for the web
+   app — `apps/web` is already wired to `@sentry/nextjs`, expecting org `wanjiku-wakiama`
+   and project `javascript-nextjs` in `next.config.mjs`).
+2. API: copy the DSN into `SENTRY_DSN`. Web: copy the DSN into `NEXT_PUBLIC_SENTRY_DSN`
+   (one DSN covers the client, server and edge runtimes; DSNs are not secret, so the
+   `NEXT_PUBLIC_` prefix is fine). Both are no-ops when empty, so local dev without a DSN
+   stays offline.
+3. Optional: `SENTRY_AUTH_TOKEN` (Settings > Auth Tokens) uploads source maps on
+   `next build` so production stack traces show real code instead of minified output.
+   Missing it just skips the upload rather than failing the build.
 
 ### 5. GitHub repo
 

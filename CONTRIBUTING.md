@@ -107,6 +107,8 @@ Values that must be supplied by hand — the rest have working local defaults:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web     | Browser-visible                                                                                                                                                           |
 | `QWEN_API_KEY`                  | api     | Optional — remote OCR and model notes are off when empty. Server-side only; never `NEXT_PUBLIC_`                                                                          |
 | `SENTRY_DSN`                    | api     | Optional — reporting is skipped when empty, so local dev stays offline                                                                                                    |
+| `NEXT_PUBLIC_SENTRY_DSN`        | web     | Optional — same no-op-when-empty behavior. DSNs aren't secret, so the `NEXT_PUBLIC_` prefix is fine                                                                       |
+| `SENTRY_AUTH_TOKEN`             | web     | Optional, build-time only — uploads source maps on `next build`; missing it just skips the upload                                                                         |
 
 Send credentials through a password manager or a secrets store. Not chat, not email.
 `.env` is gitignored and must stay that way.
