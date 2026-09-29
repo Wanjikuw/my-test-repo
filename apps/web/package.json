@@ -16,7 +16,7 @@
     "@allergy-checker/shared": "workspace:*",
     "@sentry/nextjs": "^11.1.0",
     "next": "15.5.26",
-    "react": "^18.3.0",
+    "react": "^19.3.0",
     "react-dom": "^18.3.0",
     "tesseract.js": "^7.0.0",
     "zustand": "^5.0.0"
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
-    "@types/react": "^18.3.0",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.5.0",
