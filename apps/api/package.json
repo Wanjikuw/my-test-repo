@@ -24,7 +24,7 @@
     "@sentry/node": "^10.74.0",
     "dotenv": "^16.4.5",
     "drizzle-orm": "0.38.0",
-    "fastify": "^5.0.0",
+    "fastify": "^5.12.5",
     "postgres": "3.4.4",
     "zod": "^3.23.0"
   },
