@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildServer, resolveCorsOrigin, resolveRateLimit, resolveTrustProxy } from './index';
+import { initObservability } from './observability';
 
 describe('resolveCorsOrigin', () => {
   it('uses the configured allowlist', () => {
@@ -63,6 +64,28 @@ describe('error handler', () => {
     const server = await withRoutes();
     const res = await server.inject({ method: 'GET', url: '/boom' });
     expect(res.json().requestId).toBeTruthy();
+  });
+
+  it('alerts on a 500, not a 400, under the request id the client was given', async () => {
+    const posts: string[] = [];
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      posts.push(String(init?.body));
+      return new Response(null, { status: 204 });
+    }) as typeof fetch;
+    initObservability({ ALERT_WEBHOOK_URL: 'https://discord.com/api/webhooks/1/t' }, fetchImpl);
+
+    try {
+      const server = await withRoutes();
+      await server.inject({ method: 'GET', url: '/bad' });
+      expect(posts).toHaveLength(0);
+
+      const res = await server.inject({ method: 'GET', url: '/boom' });
+      expect(posts).toHaveLength(1);
+      expect(posts[0]).toContain(res.json().requestId);
+      expect(posts[0]).not.toContain('hunter2');
+    } finally {
+      initObservability({});
+    }
   });
 
   it('still serves health', async () => {
