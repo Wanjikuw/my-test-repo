@@ -42,3 +42,7 @@ jobs:
 
       - name: Build
         run: pnpm turbo run build
+        env:
+          # Optional: uploads source maps for apps/web on this build. Absent, the
+          # Sentry webpack plugin just skips the upload rather than failing the build.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
