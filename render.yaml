@@ -49,3 +49,5 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: ALERT_WEBHOOK_URL
+        sync: false

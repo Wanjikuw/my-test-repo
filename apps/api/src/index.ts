@@ -89,8 +89,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   // The error body is the one thing a client always sees, so it never carries a stack or
   // a driver message. Anything the framework did not classify is assumed to be ours and
-  // is reported as a bare 500; the detail goes to the log and to Sentry, keyed by
-  // request id.
+  // is reported as a bare 500; the detail goes to the log, and to Sentry and the alert
+  // webhook when configured, keyed by request id.
   server.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
     const statusCode = error.statusCode ?? 500;
     request.log.error({ err: error, requestId: request.id }, 'request failed');
@@ -100,6 +100,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         requestId: request.id,
         method: request.method,
         url: request.url,
+        statusCode,
       });
       reply.status(statusCode).send({ error: 'Internal Server Error', requestId: request.id });
       return;
