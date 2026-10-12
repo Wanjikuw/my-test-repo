@@ -181,6 +181,10 @@ single synchronous call, so there is no background work to queue.
 3. Optional: `SENTRY_AUTH_TOKEN` (Settings > Auth Tokens) uploads source maps on
    `next build` so production stack traces show real code instead of minified output.
    Missing it just skips the upload rather than failing the build.
+4. No Sentry account? Set `ALERT_WEBHOOK_URL` on the API to a Slack or Discord incoming
+   webhook instead. Each 5xx posts its route, error and request id (at most once a
+   minute), and the full stack stays in the service log under that id. Browser errors are
+   not covered — only Sentry on the web app catches those.
 
 ### 5. GitHub repo
 
@@ -225,18 +229,23 @@ the dashboard equivalents are given in case you'd rather click through it.
 
 1. In the Render dashboard choose **New > Blueprint** and pick this repo. Render reads
    `render.yaml` and proposes one web service on the Free plan in Frankfurt.
-2. If you create the service by hand instead, the settings that matter are: **Language**
-   `Docker`, **Root Directory** left _blank_, **Dockerfile Path** `apps/api/Dockerfile`,
-   **Docker Build Context Directory** `.`, and **Health Check Path** `/health`. The root
-   directory must stay empty — the Dockerfile needs the whole monorepo as its build
-   context to resolve the pnpm workspace, and Render makes nothing outside the root
-   directory available at build time.
+2. If you create the service by hand instead, set **Language** to `Docker` first. If the
+   form is asking for a **Start Command**, the language is still Node: a Docker service
+   has no required start command, and its optional **Docker Command** should stay blank
+   so the Dockerfile's `CMD` runs. Then: **Root Directory** left _blank_, **Dockerfile
+   Path** `apps/api/Dockerfile`, **Docker Build Context Directory** `.`, and **Health Check
+   Path** `/health`. The root directory must stay empty — the Dockerfile needs the whole
+   monorepo as its build context to resolve the pnpm workspace, and Render makes nothing
+   outside the root directory available at build time.
 3. Set the environment variables Render prompts for (they are declared `sync: false` in
    `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`,
-   `CORS_ORIGIN=https://<vercel-domain>`, and optionally `QWEN_API_KEY` and `SENTRY_DSN`.
-   `CORS_ORIGIN` is not optional: in production the API refuses to start without it rather
-   than reflect any origin. `NODE_ENV`, `TRUST_PROXY` and `SENTRY_ENVIRONMENT` come from
-   `render.yaml`. Leave `PORT` unset — Render injects `10000` and the server binds it.
+   `CORS_ORIGIN=https://<vercel-domain>`, and optionally `QWEN_API_KEY`, `SENTRY_DSN` and
+   `ALERT_WEBHOOK_URL`. `CORS_ORIGIN` is not optional: in production the API refuses to
+   start without it rather than reflect any origin. A Blueprint also sets `NODE_ENV`,
+   `TRUST_PROXY` and `SENTRY_ENVIRONMENT` from `render.yaml`, but a service created by
+   hand never reads that file: add `TRUST_PROXY=true` yourself, or the rate limiter counts
+   every visitor as one caller. (`NODE_ENV=production` is already set in the Docker
+   image.) Leave `PORT` unset — Render injects `10000` and the server binds it.
 4. Deploy. Confirm `https://<your-service>.onrender.com/health` returns `{"status":"ok",...}`
    and `/capabilities` names the Qwen models if a key was set.
 
