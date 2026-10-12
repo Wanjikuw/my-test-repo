@@ -28,3 +28,6 @@ Thumbs.db
 annex2.MD
 annex3.MD
 annexV.MD
+
+# Sentry Config File
+.env.sentry-build-plugin
