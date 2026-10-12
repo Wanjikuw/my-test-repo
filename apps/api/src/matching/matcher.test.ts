@@ -12,6 +12,7 @@ import {
   type SensitivityRule,
 } from './matcher';
 import { parseIngredientList } from './normalise';
+import { MAX_NAME_CHARS } from './limits';
 
 const matchNames = (
   names: string[],
@@ -341,6 +342,47 @@ describe('names printed with a slash', () => {
   it('does not split a compound name the index lacks', () => {
     expect(lookupAlternateNames(index, 'Aqua/Acrylates Crosspolymer')).toBeUndefined();
     expect(lookupAlternateNames(index, 'Caprylic/Capric/Succinic Triglyceride')).toBeUndefined();
+  });
+
+  it('expands up to eight parts and no further', () => {
+    const parts = ['Aqua', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'];
+    expect(lookupAlternateNames(index, parts.join('/'))?.resolution.record.id).toBe('aqua');
+    expect(lookupAlternateNames(index, [...parts, 'a8'].join('/'))).toBeUndefined();
+  });
+
+  // Thirty short parts used to come back as thirty unrecognised entries from one printed
+  // name, which is how a single entry got past the route's ceiling on the number of names.
+  it('reports a long run of slashes as one unrecognised name, not one per part', () => {
+    const run = Array.from({ length: 30 }, (_, i) => `ab${String(i).padStart(2, '0')}`).join('/');
+    const analysis = analyseNames([run], index, RULES, { skinType: null, suggestUnmatched: true });
+    expect(analysis.unrecognised).toHaveLength(1);
+  });
+});
+
+describe('names too long to be an ingredient', () => {
+  const analyse = (names: string[]) =>
+    analyseNames(names, INDEX, RULES, { skinType: null, suggestUnmatched: true });
+
+  it('reports a pasted paragraph as one unrecognised name and never looks it up', () => {
+    const paragraph = `Linalool ${'and some more words '.repeat(20)}`;
+    const analysis = analyse([paragraph, 'Linalool']);
+    expect(analysis.result.matches.map((m) => m.inciName)).toEqual(['Linalool']);
+    expect(analysis.unrecognised).toHaveLength(1);
+    expect(analysis.unrecognised[0]?.suggestions).toEqual([]);
+    expect(score(analysis.result).tier).toBe('UnverifiedCaution');
+  });
+
+  it('shows the name clipped, so the response is no larger than it needs to be', () => {
+    const analysis = analyse(['x'.repeat(5_000)]);
+    const clipped = `${'x'.repeat(MAX_NAME_CHARS)}…`;
+    expect(analysis.unrecognised[0]?.rawText).toBe(clipped);
+    expect(analysis.result.unmatched[0]?.rawText).toBe(clipped);
+  });
+
+  // The ceiling is on the printed name, so trailing padding counts towards it.
+  it('still looks up a name of exactly the limit and refuses one character more', () => {
+    expect(analyse(['Linalool'.padEnd(MAX_NAME_CHARS)]).result.matches).toHaveLength(1);
+    expect(analyse(['Linalool'.padEnd(MAX_NAME_CHARS + 1)]).result.matches).toHaveLength(0);
   });
 });
 

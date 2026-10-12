@@ -10,6 +10,7 @@ import {
 } from '@allergy-checker/shared';
 import type { MatchingContext } from '../matching/context';
 import { analyseNames, type LabelAnalysis } from '../matching/matcher';
+import { MAX_NAME_CHARS } from '../matching/limits';
 import { parseIngredientList } from '../matching/normalise';
 import { badRequest, loadContextLazily, parseOrThrow, type LoadContext } from './support';
 
@@ -21,7 +22,7 @@ import { badRequest, loadContextLazily, parseOrThrow, type LoadContext } from '.
  */
 export const MAX_LABEL_CHARS = 20_000;
 export const MAX_NAMES = 400;
-export const MAX_NAME_CHARS = 200;
+export { MAX_NAME_CHARS };
 export const MAX_DECLARED_ALLERGIES = 200;
 
 const name = z.string().trim().min(1).max(MAX_NAME_CHARS);

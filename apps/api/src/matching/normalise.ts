@@ -20,8 +20,28 @@ const INVISIBLE = /[\u200b-\u200f\ufeff]/g;
 /** En dash, em dash and friends, which labels use where INCI uses a plain hyphen. */
 const UNICODE_DASHES = /[\u2010-\u2015\u2212]/g;
 
-/** Organic/origin markers and trailing punctuation printed alongside a name. */
-const TRAILING_NOISE = /[*\u2020\u2021.\s]+$/;
+const isWhitespace = (char: string) => /\s/.test(char);
+const isDigit = (char: string) => char >= '0' && char <= '9';
+
+function isTrailingNoise(char: string): boolean {
+  return (
+    char === '*' || char === '\u2020' || char === '\u2021' || char === '.' || isWhitespace(char)
+  );
+}
+
+/**
+ * Drops the organic/origin markers and trailing punctuation printed alongside a name:
+ * asterisks, daggers, dots and whitespace.
+ *
+ * Scans back from the end rather than using a `/[...]+$/` regex. A pattern that is not
+ * anchored at its start is retried from every position inside a long run, so a label that
+ * was nothing but dots took quadratic time, and the API accepts labels of 20,000 characters.
+ */
+export function trimTrailingNoise(text: string): string {
+  let end = text.length;
+  while (end > 0 && isTrailingNoise(text[end - 1]!)) end--;
+  return text.slice(0, end);
+}
 
 /**
  * Common-name inserts sit inside an INCI binomial: `Simmondsia Chinensis (Jojoba) Seed
@@ -56,10 +76,7 @@ const SPELLING_FOLD: Readonly<Record<string, string>> = {
  * parentheses, so it cannot collide two chemical names.
  */
 export function normaliseInciName(raw: string): string {
-  return raw
-    .replace(INVISIBLE, '')
-    .replace(UNICODE_DASHES, '-')
-    .replace(TRAILING_NOISE, '')
+  return trimTrailingNoise(raw.replace(INVISIBLE, '').replace(UNICODE_DASHES, '-'))
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
@@ -123,8 +140,43 @@ const MAY_CONTAIN_BLOCK = /\[\s*(?:\+\s*\/\s*-|±|may contain:?|peut contenir:?)
 const MAY_CONTAIN_MARKER =
   /\(\s*\+\s*\/\s*-\s*\)|\+\s*\/\s*-|±|\bmay contain\b:?|\bpeut contenir\b:?/gi;
 
-/** A concentration printed after a name, `Niacinamide 10%`. No INCI name ends in one. */
-const TRAILING_PERCENT = /\s*\(?\s*\d+(?:[.,]\d+)?\s*%\s*\)?$/;
+/**
+ * Drops a concentration printed after a name — `Niacinamide 10%`, `Zinc PCA (1%)`,
+ * `Parfum 0,5 %`. No INCI name ends in one.
+ *
+ * Scans back from the end, taking an optional `)`, a `%`, a number with an optional fraction,
+ * and an optional `(`, with spaces allowed between them. It replaces
+ * `/\s*\(?\s*\d+(?:[.,]\d+)?\s*%\s*\)?$/`, which backtracked across its adjacent `\s*` runs
+ * and took cubic time on a long run of spaces: 4,000 of them held the event loop for 17
+ * seconds. A differential test pins the two to identical output.
+ */
+export function stripTrailingPercent(text: string): string {
+  let end = text.length;
+  if (end > 0 && text[end - 1] === ')') end--;
+  while (end > 0 && isWhitespace(text[end - 1]!)) end--;
+  if (end === 0 || text[end - 1] !== '%') return text;
+  end--;
+  while (end > 0 && isWhitespace(text[end - 1]!)) end--;
+
+  let start = end;
+  while (start > 0 && isDigit(text[start - 1]!)) start--;
+  if (start === end) return text;
+  // A fraction is part of the number only when digits precede its separator: `12.5%`, not `x.5%`.
+  if (
+    start > 1 &&
+    (text[start - 1] === '.' || text[start - 1] === ',') &&
+    isDigit(text[start - 2]!)
+  ) {
+    start--;
+    while (start > 0 && isDigit(text[start - 1]!)) start--;
+  }
+  while (start > 0 && isWhitespace(text[start - 1]!)) start--;
+  if (start > 0 && text[start - 1] === '(') {
+    start--;
+    while (start > 0 && isWhitespace(text[start - 1]!)) start--;
+  }
+  return text.slice(0, start);
+}
 
 /** Bullets and list dashes printed ahead of a name. */
 const LEADING_NOISE = /^(?:[•·*\s]|[-–—]\s)+/;
@@ -155,11 +207,7 @@ export function parseIngredientList(label: string): string[] {
     .replace(MAY_CONTAIN_MARKER, ',')
     .split(SEPARATOR)
     .map((part) =>
-      part
-        .replace(LEADING_NOISE, '')
-        .replace(TRAILING_NOISE, '')
-        .replace(TRAILING_PERCENT, '')
-        .replace(TRAILING_NOISE, '')
+      trimTrailingNoise(stripTrailingPercent(trimTrailingNoise(part.replace(LEADING_NOISE, ''))))
         .replace(/\s+/g, ' ')
         .trim(),
     )
