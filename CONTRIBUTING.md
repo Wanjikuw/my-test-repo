@@ -178,3 +178,18 @@ Commit messages must follow [Conventional Commits](https://www.conventionalcommi
 database client lazily`. The pre-commit hook runs `eslint --fix` and `prettier --write` over
 staged files. A commit that fails either hook is the hook working, not a bug — read the
 output rather than reaching for `--no-verify`.
+
+## 9. Security overrides
+
+The root `package.json` carries `pnpm.overrides` for transitive dependencies that `pnpm audit`
+flags and whose parents have not yet released a fix. Each entry names only the vulnerable
+range, so a package already on a safe version, or on an older major, is left alone. They are
+temporary: when `pnpm audit --prod` stays clean with an entry removed, delete it.
+
+| Override                   | Advisory                                                                    | Pulled in by                              |
+| -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------- |
+| `postcss`, `source-map-js` | File read and XSS through source-map handling; source-map denial of service | `next`, which pins postcss 8.4.31 exactly |
+| `sharp`                    | Vulnerability in the librsvg it bundles (this site serves no SVG)           | `next` (optional)                         |
+| `brace-expansion`          | Denial of service through brace expansion                                   | `@sentry/nextjs`                          |
+| `fast-uri`                 | Host normalisation and mailto header injection                              | `fastify`                                 |
+| `ip-address`               | Allowlist bypass and an unbounded diagnostic                                | `@fastify/rate-limit`                     |
