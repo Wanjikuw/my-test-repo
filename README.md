@@ -117,7 +117,8 @@ any lockfile change as a deliberate reviewable edit rather than install noise.
 
 #### 1e. Verify the install locally
 
-Run the same sequence CI runs. All five must pass before you push:
+Run the same sequence CI runs. All five must pass before you push (`pnpm verify` runs them
+in one go):
 
 ```bash
 pnpm format:check

@@ -1,0 +1,10 @@
+# Same PATH workaround as pre-commit: hooks run with a reduced PATH that omits nvm-managed Node.
+if [ -f .nvmrc ]; then
+  nvm_bin="${NVM_DIR:-$HOME/.nvm}/versions/node/v$(cat .nvmrc)/bin"
+  if [ -d "$nvm_bin" ]; then
+    PATH="$nvm_bin:$PATH"
+    export PATH
+  fi
+fi
+
+pnpm exec commitlint --edit "$1"
