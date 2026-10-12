@@ -132,7 +132,8 @@ The seeders are upserts and safe to re-run — that was a deliberate fix, since 
 
 ## 6. Verify
 
-The same five steps CI runs. All must pass before you push.
+The same five steps CI runs. All must pass before you push. `pnpm verify` runs them in one
+go.
 
 ```powershell
 pnpm format:check
@@ -141,6 +142,12 @@ pnpm turbo run typecheck
 pnpm turbo run test
 pnpm turbo run build
 ```
+
+Tests are hermetic: `apps/api/vitest.config.ts` blanks `DATABASE_URL` and the other service
+variables, so a developer's `.env` can never make a test pass that fails on CI. A module that
+needs a database when it is imported fails here, with the same error CI reports. Load the
+client with a dynamic `import()` inside the function that needs it instead; an ESLint rule
+enforces this outside `src/db`.
 
 `format:check` failing on a fresh clone usually means an editor reformatted something — run
 `pnpm format` once and commit the result.
@@ -166,6 +173,8 @@ Invoke-RestMethod http://localhost:3001/health
 
 ## 8. Before your first commit
 
-Conventional Commits are enforced from commit #1 and the pre-commit hook runs
-`eslint --fix` and `prettier --write` over staged files. A commit that fails the hook is the
-hook working, not a bug — read the output rather than reaching for `--no-verify`.
+Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/): a
+`commit-msg` hook runs commitlint and rejects anything else, for example `fix(api): load the
+database client lazily`. The pre-commit hook runs `eslint --fix` and `prettier --write` over
+staged files. A commit that fails either hook is the hook working, not a bug — read the
+output rather than reaching for `--no-verify`.
