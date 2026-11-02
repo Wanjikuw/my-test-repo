@@ -57,6 +57,24 @@ describe('CORS', () => {
     );
   });
 
+  // A preflight advertises what the API will accept. It serves GET and POST only, so it must
+  // not offer PUT, PATCH or DELETE. @fastify/cors 10 did by default and 11 does not; this test
+  // names the set, so a later default that widens it again fails here.
+  it('advertises only the methods this API serves', async () => {
+    const app = await serverAllowing(APP);
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/analyze',
+      headers: { origin: APP, ...PREFLIGHT },
+    });
+
+    const methods = String(res.headers['access-control-allow-methods'])
+      .split(',')
+      .map((method) => method.trim())
+      .sort();
+    expect(methods).toEqual(['GET', 'HEAD', 'POST']);
+  });
+
   it('does not grant a preflight to a foreign origin', async () => {
     const app = await serverAllowing(APP);
     const res = await app.inject({
