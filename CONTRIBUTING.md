@@ -179,17 +179,45 @@ database client lazily`. The pre-commit hook runs `eslint --fix` and `prettier -
 staged files. A commit that fails either hook is the hook working, not a bug — read the
 output rather than reaching for `--no-verify`.
 
-## 9. Security overrides
+## 9. Security advisories
+
+`pnpm audit` is a moving target: between 12 Oct and 2 Nov 2026 it gained a critical in `next`, a
+high in `zod`, and advisories in `fastify`, `fast-uri`, `vitest`, `minimatch` and `glob`, without
+a line of this repository changing. So the gate is defined here, and it is checked again
+whenever dependencies move.
+
+**The gate is `pnpm audit --prod --audit-level=high`, and it must exit 0.** Anything at high or
+critical in the production tree is fixed, not accepted. The full tree (`pnpm audit`) must have
+no critical.
+
+Advisories below the gate are accepted only when they are in build or development tooling, or
+reach no code path this project runs, and only when no compatible fix exists. Each one is
+listed here with the reason, so that a later reader can tell a decision from an oversight.
+
+| Advisory                                        | Why it is accepted                                                                                                                                                                                                               | Revisit when                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `esbuild` 0.18, moderate (dev server CORS)      | Arrives through drizzle-kit's loader. Only esbuild's own dev server is affected, and nothing here starts it.                                                                                                                     | drizzle-kit drops `@esbuild-kit/*`       |
+| `minimatch` < 11, moderate (pattern DoS)        | Pulled in by eslint (3.x) and by `glob` in the Sentry bundler plugin (10.x), and only ever given patterns this repository wrote. Fixed only in 11, which neither parent accepts yet.                                             | eslint or `glob` moves to minimatch 11   |
+| `glob` 13, moderate (abort signal not honoured) | Used by the Sentry bundler plugin during `next build`, over this project's own build output. It only matters to a caller that relies on an abort signal to stop a walk early. Fixed in 14, which the plugin does not yet accept. | `@sentry/bundler-plugins` allows glob 14 |
+
+### Overrides
 
 The root `package.json` carries `pnpm.overrides` for transitive dependencies that `pnpm audit`
 flags and whose parents have not yet released a fix. Each entry names only the vulnerable
 range, so a package already on a safe version, or on an older major, is left alone. They are
 temporary: when `pnpm audit --prod` stays clean with an entry removed, delete it.
 
-| Override                   | Advisory                                                                    | Pulled in by                              |
-| -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------- |
-| `postcss`, `source-map-js` | File read and XSS through source-map handling; source-map denial of service | `next`, which pins postcss 8.4.31 exactly |
-| `sharp`                    | Vulnerability in the librsvg it bundles (this site serves no SVG)           | `next` (optional)                         |
-| `brace-expansion`          | Denial of service through brace expansion                                   | `@sentry/nextjs`                          |
-| `fast-uri`                 | Host normalisation and mailto header injection                              | `fastify`                                 |
-| `ip-address`               | Allowlist bypass and an unbounded diagnostic                                | `@fastify/rate-limit`                     |
+| Override                   | Advisory                                                                    | Pulled in by                                 |
+| -------------------------- | --------------------------------------------------------------------------- | -------------------------------------------- |
+| `postcss`, `source-map-js` | File read and XSS through source-map handling; source-map denial of service | `next`, which pins postcss 8.4.31 exactly    |
+| `sharp`                    | Vulnerability in the librsvg it bundles (this site serves no SVG)           | `next` (optional)                            |
+| `brace-expansion`          | Denial of service through brace expansion (1.x and 5.x are both overridden) | `eslint`'s config packages, `@sentry/nextjs` |
+| `fast-uri`                 | Host normalisation and mailto header injection                              | `fastify`                                    |
+| `ip-address`               | Allowlist bypass and an unbounded diagnostic                                | `@fastify/rate-limit`                        |
+
+### Majors taken for security
+
+`zod` is on 4 and `vitest` on 4, because the advisories against 3.x and 2.x had no backport. For
+zod the exposure was real: before 4.6.6 a 1 MiB request body of oversized arrays blocked the API
+for about 1.5 seconds, grew it by about 300 MiB and was answered with a 30 MB error message. A
+test in `apps/api/src/routes/analyze.test.ts` pins that behaviour.
