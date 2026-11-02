@@ -6,15 +6,45 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # Only minor and patch updates ride in the group. A major gets its own PR, so one that
+      # cannot be taken yet cannot hold back the rest, which is how a single group PR came to
+      # propose TypeScript 7 next to a routine prettier bump.
       dev-dependencies:
         dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 ships no JS compiler API, which typescript-eslint needs, and
+      # typescript-eslint supports TypeScript below 6.1. 6.x is still welcome as its own PR.
+      - dependency-name: typescript
+        versions: ['>=7.0.0']
+      # The types have to describe the runtime, which is Node 22. See CONTRIBUTING.md.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # React 19 is a migration rather than a bump: react, react-dom and the types move
+      # together, and Next, Sentry and zustand have to be checked against it.
+      - dependency-name: react
+        update-types: ['version-update:semver-major']
+      - dependency-name: react-dom
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        update-types: [minor, patch]
 
   - package-ecosystem: docker
     directory: /apps/api
     schedule:
       interval: weekly
+    ignore:
+      # The runtime is pinned to Node 22 in .nvmrc, engines, Vercel and this Dockerfile, and
+      # moving it is a platform decision. Patch and minor updates of 22 still arrive.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']

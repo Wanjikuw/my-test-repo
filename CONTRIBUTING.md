@@ -217,7 +217,32 @@ temporary: when `pnpm audit --prod` stays clean with an entry removed, delete it
 
 ### Majors taken for security
 
-`zod` is on 4 and `vitest` on 4, because the advisories against 3.x and 2.x had no backport. For
-zod the exposure was real: before 4.6.6 a 1 MiB request body of oversized arrays blocked the API
-for about 1.5 seconds, grew it by about 300 MiB and was answered with a 30 MB error message. A
-test in `apps/api/src/routes/analyze.test.ts` pins that behaviour.
+`zod` is on 4 because the advisory against 3.x had no backport. The exposure was real: before
+4.6.6 a 1 MiB request body of oversized arrays blocked the API for about 1.5 seconds, grew it by
+about 300 MiB and was answered with a 30 MB error message. A test in
+`apps/api/src/routes/analyze.test.ts` pins that behaviour. `vitest` was likewise moved off 2.x
+for critical tooling advisories, and is now on 5.
+
+## 10. Dependency updates
+
+Dependabot opens PRs weekly (`.github/dependabot.yml`). Minor and patch updates are grouped; a
+major gets its own PR, so one that cannot be taken yet cannot hold up the others. A Dependabot
+branch is cut from `main` as it was at the time, so its CI is red until it is rebased (comment
+`@dependabot rebase`), and Dependabot closes a PR by itself once `main` already satisfies it.
+
+A major is merged only after it has been exercised on something that fails if the upgrade
+changes behaviour, not merely installed. The recent ones were checked like this: ESLint 10 (lint
+passes, and a deliberate violation is still reported), lint-staged 17 (tried on real staged
+files, including one that must block the commit), `@fastify/cors` 11 (a header-level test, and a
+before and after diff over eleven request shapes) and dotenv 18 (the production boot log, before
+and after).
+
+Some majors are declined on purpose and ignored in the config. Each is listed with the reason
+and what would change the decision.
+
+| Ignored                                                         | Why                                                                                                                                                                                                                    | Revisit when                    |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| TypeScript 7 and later                                          | It ships no JS compiler API, which typescript-eslint needs, and typescript-eslint supports TypeScript below 6.1. TypeScript 6.x is still proposed.                                                                     | typescript-eslint supports 7    |
+| `@types/node` majors                                            | The types have to describe the runtime, which is Node 22. A newer major would let code use APIs the deployed runtime lacks.                                                                                            | the runtime moves off Node 22   |
+| `react`, `react-dom`, `@types/react`, `@types/react-dom` majors | React 19 is a migration: the four move together (one Dependabot PR bumped `react` and left `react-dom` on 18, which is not a supported pairing), and Next, Sentry and zustand have to be checked against it.           | a planned React 19 migration    |
+| `node` Docker image majors                                      | The runtime is pinned to Node 22 in `.nvmrc`, `engines`, Vercel and the Dockerfile. Moving it is a platform decision, due before Node 22 leaves maintenance in April 2027. Patch and minor updates of 22 still arrive. | the runtime is moved on purpose |
