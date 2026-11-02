@@ -200,6 +200,13 @@ listed here with the reason, so that a later reader can tell a decision from an 
 | `minimatch` < 11, moderate (pattern DoS)        | Pulled in by eslint (3.x) and by `glob` in the Sentry bundler plugin (10.x), and only ever given patterns this repository wrote. Fixed only in 11, which neither parent accepts yet.                                             | eslint or `glob` moves to minimatch 11   |
 | `glob` 13, moderate (abort signal not honoured) | Used by the Sentry bundler plugin during `next build`, over this project's own build output. It only matters to a caller that relies on an abort signal to stop a walk early. Fixed in 14, which the plugin does not yet accept. | `@sentry/bundler-plugins` allows glob 14 |
 
+`pnpm audit` shows two paths to `glob`, one through `@sentry/nextjs` and one through
+`@sentry/node`, but both end at the same `@sentry/bundler-plugins`. In `@sentry/nextjs` only its
+build configuration (the webpack plugin, its loaders and the post-compile hook) refers to the
+plugin, and `@sentry/node` declares it without any of its JavaScript referring to it, so
+`glob` and `minimatch` 10 are reached from `next build` and not from the running server. That was
+checked by searching the shipped files of `@sentry/*` 11.1.0, so repeat it when they are upgraded.
+
 ### Overrides
 
 The root `package.json` carries `pnpm.overrides` for transitive dependencies that `pnpm audit`
