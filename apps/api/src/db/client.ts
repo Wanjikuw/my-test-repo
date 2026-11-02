@@ -5,7 +5,7 @@ import * as schema from './schema';
 import { resolvePostgresOptions } from './pooler';
 
 // No-ops in deployed environments (Render injects real env vars and ships no .env file).
-config({ path: ['.env', '../../.env'] });
+config({ path: ['.env', '../../.env'], quiet: true });
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set — check your .env against .env.example');
