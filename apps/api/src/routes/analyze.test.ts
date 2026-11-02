@@ -260,3 +260,44 @@ describe('POST /analyze', () => {
     expect(loadContext).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Zod 3 parsed every element of an oversized array before it counted them, and reported an
+ * issue for each failing element. A 1 MiB body, which is Fastify's default limit and so the
+ * most this route can be sent, held the event loop for about 1.4 s, grew the process by about
+ * 300 MiB and was answered with a 21 MB error message: one anonymous request was enough to
+ * take a 512 MB instance down. Zod 4.6.6 stops at the length instead.
+ *
+ * The size of the answer is what is asserted, because unlike memory or time it is the same on
+ * every machine: it grows with each issue the validator builds, so it is the work done made
+ * visible. It was 21 to 31 MB on zod 3 and is under 1 KiB now.
+ */
+describe('POST /analyze with an array far longer than any real one', () => {
+  const BODY_BYTES = 1_048_576;
+
+  function arrayBody(field: string, element: string, extra: string): string {
+    const head = `{${extra}"${field}":[`;
+    const count = Math.floor((BODY_BYTES - head.length - 2) / (element.length + 1));
+    return `${head}${new Array<string>(count).fill(element).join(',')}]}`;
+  }
+
+  it.each([
+    ['inciNames', '""', ''],
+    ['inciNames', '1', ''],
+    ['declaredAllergies', '1', '"inciNames":["Aqua"],'],
+  ])('refuses %s made of %s cheaply', async (field, element, extra) => {
+    const app = await server();
+    const payload = arrayBody(field, element, extra);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/analyze',
+      headers: { 'content-type': 'application/json' },
+      payload,
+    });
+
+    expect(payload.length).toBeGreaterThan(1_000_000);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.length).toBeLessThan(4_096);
+  });
+});
