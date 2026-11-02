@@ -126,8 +126,9 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
 async function main() {
   // Read before anything consults process.env. Deployed machines ship no .env file, so
-  // there this is a no-op and the platform's secrets are what is read.
-  loadEnvFile({ path: ['.env', '../../.env'] });
+  // there this is a no-op and the platform's secrets are what is read. Quiet because dotenv 17
+  // and later print a line on every call, even when there is no file to read.
+  loadEnvFile({ path: ['.env', '../../.env'], quiet: true });
   initObservability();
   const server = await buildServer();
   const port = Number(process.env.PORT ?? 3001);
