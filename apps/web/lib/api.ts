@@ -17,6 +17,20 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
+/**
+ * The API runs on a plan that puts it to sleep when idle and needs about a minute to wake.
+ * Past the first figure the caller is told why the wait is long; past the second the request
+ * is abandoned, so a stalled connection ends in a message and not in a button that says
+ * "Checking…" for ever.
+ */
+const SLOW_AFTER_MS = 4_000;
+const GIVE_UP_AFTER_MS = 90_000;
+
+const UNREACHABLE = 'Could not reach the service. Check your connection and try again.';
+const TOO_SLOW =
+  'The service did not answer in time. It may be starting up: wait a moment and try again.';
+const UNREADABLE = 'The service sent an answer that could not be read. Try again in a moment.';
+
 /** Matches the API's own cap, so an over-long query is refused before it leaves the browser. */
 export const MAX_QUERY_CHARS = 200;
 
@@ -38,32 +52,67 @@ export class ApiError extends Error {
   }
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  let response: Response;
+export interface RequestOptions {
+  /** Called once if no answer has arrived after a few seconds. */
+  onSlow?: () => void;
+}
+
+function isAbort(cause: unknown): boolean {
+  return cause instanceof DOMException && cause.name === 'AbortError';
+}
+
+/**
+ * One request with a deadline. `signal` is the caller's own, for replacing a request that is
+ * no longer wanted: that is rethrown as an abort and never reported, whereas a deadline that
+ * runs out is.
+ */
+async function request<T>(
+  path: string,
+  init: RequestInit,
+  options: RequestOptions = {},
+  signal?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const forward = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener('abort', forward, { once: true });
+
+  const deadline = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, GIVE_UP_AFTER_MS);
+  const slow = options.onSlow ? setTimeout(options.onSlow, SLOW_AFTER_MS) : undefined;
+
   try {
-    response = await fetch(`${BASE}${path}`, {
+    const response = await fetch(`${BASE}${path}`, { ...init, signal: controller.signal });
+    return await unwrap<T>(response);
+  } catch (cause) {
+    if (cause instanceof ApiError) throw cause;
+    if (timedOut) throw new ApiError(TOO_SLOW, 0);
+    if (signal?.aborted && isAbort(cause)) throw cause;
+    throw new ApiError(UNREACHABLE, 0);
+  } finally {
+    clearTimeout(deadline);
+    clearTimeout(slow);
+    signal?.removeEventListener('abort', forward);
+  }
+}
+
+function post<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+  return request<T>(
+    path,
+    {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiError('Could not reach the service. Check your connection and try again.', 0);
-  }
-
-  return unwrap<T>(response);
+    },
+    options,
+  );
 }
 
-async function get<T>(path: string, signal: AbortSignal): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${BASE}${path}`, { signal });
-  } catch (cause) {
-    // An abort is the caller replacing this request, not a failure to report.
-    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
-    throw new ApiError('Could not reach the service. Check your connection and try again.', 0);
-  }
-
-  return unwrap<T>(response);
+function get<T>(path: string, signal: AbortSignal): Promise<T> {
+  return request<T>(path, {}, {}, signal);
 }
 
 async function unwrap<T>(response: Response): Promise<T> {
@@ -75,16 +124,23 @@ async function unwrap<T>(response: Response): Promise<T> {
         : `Request failed (${response.status}).`;
     throw new ApiError(message, response.status);
   }
+  // A page that is not JSON, such as a platform's holding page, would otherwise arrive as an
+  // empty answer that every caller would have to remember to check for.
+  if (payload === null) throw new ApiError(UNREADABLE, response.status);
   return payload as T;
 }
 
-export function analyze(input: AnalyzeInput): Promise<AnalyzeResponse> {
-  return post<AnalyzeResponse>('/analyze', {
-    label: input.label,
-    skinType: input.skinType,
-    sunExposure: input.sunExposure,
-    declaredAllergies: input.declaredAllergies,
-  });
+export function analyze(input: AnalyzeInput, options?: RequestOptions): Promise<AnalyzeResponse> {
+  return post<AnalyzeResponse>(
+    '/analyze',
+    {
+      label: input.label,
+      skinType: input.skinType,
+      sunExposure: input.sunExposure,
+      declaredAllergies: input.declaredAllergies,
+    },
+    options,
+  );
 }
 
 /**
@@ -121,4 +177,14 @@ export function readLabelRemotely(imageDataUrl: string): Promise<OcrResponse> {
 /** Model notes on names the reference data could not identify. Advisory, never scored. */
 export function describeUnrecognised(names: string[]): Promise<NotesResponse> {
   return post<NotesResponse>('/notes', { names });
+}
+
+/**
+ * Starts the API if it is asleep, without waiting for it. A visitor spends about as long
+ * reading the page as the wake takes, so by the time they press a button it has usually
+ * finished. `no-cors` is enough: only the arrival of the request matters, the answer is
+ * never read, and the request carries nothing.
+ */
+export function wakeApi(): void {
+  fetch(`${BASE}/health`, { mode: 'no-cors', cache: 'no-store' }).catch(() => undefined);
 }
