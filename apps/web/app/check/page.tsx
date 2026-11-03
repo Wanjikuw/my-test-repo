@@ -1,7 +1,7 @@
 'use client';
 
 import type { AnalyzeResponse, Capabilities } from '@allergy-checker/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { analyze, ApiError, getCapabilities, NO_CAPABILITIES } from '../../lib/api';
 import { annotate } from '../../lib/annotate';
 import { addIngredient, replaceName } from '../../lib/label';
@@ -27,12 +27,23 @@ export default function CheckPage() {
   // The name of a pick already on the label, so refusing it is visible rather than silent.
   const [duplicate, setDuplicate] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities>(NO_CAPABILITIES);
+  // Set once a check has been waiting long enough that the reason is worth giving.
+  const [slow, setSlow] = useState(false);
+  const resultRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     getCapabilities(controller.signal).then(setCapabilities, () => undefined);
     return () => controller.abort();
   }, []);
+
+  // The result lands below a long form, which on a phone is off screen.
+  useEffect(() => {
+    const section = resultRef.current;
+    if (!result || !section) return;
+    section.scrollIntoView({ block: 'start' });
+    section.focus({ preventScroll: true });
+  }, [result]);
 
   function addPicked(inciName: string) {
     const outcome = addIngredient(label, inciName);
@@ -42,14 +53,21 @@ export default function CheckPage() {
 
   async function check(text: string) {
     setPending(true);
+    setSlow(false);
     setError(null);
     try {
-      setResult(await analyze({ label: text, skinType, sunExposure, declaredAllergies }));
+      setResult(
+        await analyze(
+          { label: text, skinType, sunExposure, declaredAllergies },
+          { onSlow: () => setSlow(true) },
+        ),
+      );
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Something went wrong.');
       setResult(null);
     } finally {
       setPending(false);
+      setSlow(false);
     }
   }
 
@@ -120,16 +138,26 @@ export default function CheckPage() {
         >
           {pending ? 'Checking…' : 'Check this label'}
         </button>
+
+        {pending && slow && (
+          <p role="status" className="text-sm leading-relaxed text-muted">
+            The service is waking up. It sleeps when it has not been used for a while, and the first
+            check can take up to a minute.
+          </p>
+        )}
       </form>
 
       {error && (
-        <p className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid">
+        <p
+          role="alert"
+          className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid"
+        >
           {error}
         </p>
       )}
 
       {result && (
-        <section className="mt-12">
+        <section ref={resultRef} tabIndex={-1} aria-label="Result" className="mt-12 outline-none">
           <Verdict result={result} />
 
           {unresolved.length > 0 && (

@@ -1,6 +1,8 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import localFont from 'next/font/local';
 import Link from 'next/link';
+import { WarmApi } from '../components/warm-api';
 import './globals.css';
 
 /**
@@ -22,16 +24,19 @@ const fraunces = localFont({
   display: 'swap',
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Angalia - check what is in your skincare',
   description:
     'Reads a cosmetic ingredient label against EU Regulation (EC) No 1223/2009 and your skin profile, and says plainly what it could not check.',
+  // The production domain is public while the site is unfinished, and nothing should index it yet.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-dvh">
+        <WarmApi />
         <header className="border-b border-line">
           <nav className="mx-auto flex max-w-5xl items-baseline gap-6 px-5 py-4">
             <Link href="/" className="font-serif text-xl">
@@ -51,6 +56,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               Angalia reports what EU Regulation (EC) No 1223/2009 says about the ingredients it can
               identify. It is not medical advice, and it cannot tell you a product is safe.
             </p>
+            <nav aria-label="Footer" className="mt-4 flex gap-6">
+              <Link href="/about" className="hover:text-ink">
+                About and sources
+              </Link>
+              <Link href="/privacy" className="hover:text-ink">
+                Privacy
+              </Link>
+            </nav>
           </div>
         </footer>
       </body>
