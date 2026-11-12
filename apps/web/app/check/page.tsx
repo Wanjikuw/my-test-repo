@@ -1,6 +1,7 @@
 'use client';
 
 import type { AnalyzeResponse, Capabilities } from '@allergy-checker/shared';
+import { issueNotes, SENSITIVITY_ISSUES } from '@allergy-checker/shared';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { analyze, ApiError, getCapabilities, NO_CAPABILITIES } from '../../lib/api';
@@ -20,7 +21,7 @@ function listed(names: string[]): string {
 }
 
 export default function CheckPage() {
-  const { skinType, sunExposure, declaredAllergies } = useProfile();
+  const { skinType, sensitivityIssues, sunExposure, declaredAllergies } = useProfile();
   const [label, setLabel] = useState('');
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +92,7 @@ export default function CheckPage() {
 
   const names = result ? annotate(result) : [];
   const unresolved = result?.profile.unresolvedAllergies ?? [];
+  const notes = result ? issueNotes(result.matched, sensitivityIssues) : [];
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10 sm:py-16">
@@ -171,6 +173,27 @@ export default function CheckPage() {
       {result && (
         <section ref={resultRef} tabIndex={-1} aria-label="Result" className="mt-12 outline-none">
           <Verdict result={result} />
+
+          {notes.length > 0 && (
+            <section
+              aria-label="What this label means for your skin"
+              className="mt-4 rounded-md border border-line bg-surface p-4 text-sm leading-relaxed"
+            >
+              <h2 className="font-medium">What this label means for your skin</h2>
+              <ul className="mt-2 space-y-2">
+                {notes.map((note) => (
+                  <li key={note.issue}>
+                    <span className="font-medium">{SENSITIVITY_ISSUES[note.issue].label}:</span>{' '}
+                    <span className="text-muted">
+                      {listed(note.ingredients)} on this label{' '}
+                      {note.ingredients.length === 1 ? 'is' : 'are'} the kind of ingredient that can
+                      set this off.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {unresolved.length > 0 && (
             <p className="mt-4 rounded-md border border-line bg-unread-wash p-4 text-sm leading-relaxed text-unread">
