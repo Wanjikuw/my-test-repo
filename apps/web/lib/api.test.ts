@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { analyze, ApiError, searchIngredients, wakeApi } from './api';
+import { getAccessToken } from './auth/token';
+
+// The real one reads a cookie and loads the sign-in library; here it is whatever each test says.
+vi.mock('./auth/token', () => ({ getAccessToken: vi.fn() }));
 
 const INPUT = {
   label: 'Aqua, Glycerin',
@@ -28,6 +32,7 @@ function stalledFetch() {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.mocked(getAccessToken).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -131,6 +136,77 @@ describe('searchIngredients', () => {
     const error = await outcome;
     expect(error).toBeInstanceOf(DOMException);
     expect((error as DOMException).name).toBe('AbortError');
+  });
+});
+
+describe('the sign-in token', () => {
+  const headersOf = (fetchMock: ReturnType<typeof vi.fn>) =>
+    new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+
+  it('goes with an analysis as a Bearer token, beside the JSON content type', async () => {
+    vi.mocked(getAccessToken).mockResolvedValue('abc.def.ghi');
+    const fetchMock = vi.fn().mockResolvedValue(json({ tier: 'Safe' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await analyze(INPUT);
+
+    expect(headersOf(fetchMock).get('authorization')).toBe('Bearer abc.def.ghi');
+    expect(headersOf(fetchMock).get('content-type')).toBe('application/json');
+  });
+
+  it('goes with a search, which is a GET', async () => {
+    vi.mocked(getAccessToken).mockResolvedValue('abc.def.ghi');
+    const fetchMock = vi.fn().mockResolvedValue(json({ items: [], total: 0, limit: 8, offset: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchIngredients('glyc', 8, new AbortController().signal);
+
+    expect(headersOf(fetchMock).get('authorization')).toBe('Bearer abc.def.ghi');
+  });
+
+  it('is left off when nobody is signed in', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ tier: 'Safe' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await analyze(INPUT);
+
+    expect(headersOf(fetchMock).has('authorization')).toBe(false);
+  });
+
+  it('is asked for again at every request, since it is renewed while the page is open', async () => {
+    vi.mocked(getAccessToken).mockResolvedValueOnce('first').mockResolvedValueOnce('second');
+    const fetchMock = vi.fn().mockImplementation(async () => json({ tier: 'Safe' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await analyze(INPUT);
+    await analyze(INPUT);
+
+    const sent = fetchMock.mock.calls.map((call) =>
+      new Headers(call[1]?.headers).get('authorization'),
+    );
+    expect(sent).toEqual(['Bearer first', 'Bearer second']);
+  });
+
+  it('is never added to the wake-up ping, which is not allowed to carry anything', async () => {
+    vi.mocked(getAccessToken).mockResolvedValue('abc.def.ghi');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null));
+    vi.stubGlobal('fetch', fetchMock);
+
+    wakeApi();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('headers');
+  });
+
+  it('leaves a refusal reading as the API worded it, with the status the page acts on', async () => {
+    const refusal = json({ error: 'Your sign-in has ended. Sign in again to continue.' }, 401);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(refusal));
+
+    await expect(analyze(INPUT)).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 401,
+      message: 'Your sign-in has ended. Sign in again to continue.',
+    });
   });
 });
 

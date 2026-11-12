@@ -32,11 +32,11 @@ belong to the phase that first uses them:
 
 - **`@fastify/helmet` and `@fastify/rate-limit`** — the API has no auth and no user-facing
   routes yet. Add both in the same PR that adds the first non-`/health` route.
-- **Supabase JWT verification** — `apps/api` connects via `DATABASE_URL` as the table
-  owner, which **bypasses RLS entirely**. The policies in `drizzle/manual/` currently only
-  protect direct browser-to-Supabase access. Before the API serves any user data, it must
-  verify the Supabase JWT and assume the `authenticated` role per request, or the RLS
-  design is decorative.
+- **Per-user data access** — the API verifies the Supabase sign-in token on every request
+  (see "Accounts and sign-in"), but it still connects via `DATABASE_URL` as the table owner,
+  which **bypasses RLS entirely**. That is acceptable while the database holds only public
+  reference data. Before the API stores or serves anything per user, it must assume the
+  `authenticated` role per request, or the RLS design is decorative.
 - **Playwright** — removed from `apps/web` devDependencies. It was installed with no
   config and no tests, and its postinstall downloads browser binaries on every CI install.
   Re-add it together with the first E2E test.
@@ -148,16 +148,63 @@ pnpm --filter @allergy-checker/shared build # compile shared types only
 
 1. Create a project at supabase.com.
 2. Copy `.env.example` to `.env` at the repo root, then fill it in.
-   - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are **server-only** — the API reads these.
+   - `SUPABASE_URL` is read by the API, which uses it to check sign-in tokens. Nothing reads
+     `SUPABASE_SERVICE_ROLE_KEY`, so do not set it anywhere.
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` are the browser-visible
      pair. Next.js only inlines `NEXT_PUBLIC_*` into the client bundle, so the un-prefixed
      names are invisible to browser code. Never give the service role key a
      `NEXT_PUBLIC_` prefix — that publishes an RLS-bypassing credential to every visitor.
+     Next itself looks for an env file in `apps/web` only, so `apps/web/next.config.mjs` also
+     reads the `NEXT_PUBLIC_` names from this root file. Nothing else in it reaches the web
+     app, and `turbo.json` counts the file as an input to the web build, so `pnpm build` is
+     not answered from a build made before you edited it. Restart `pnpm dev` after editing
+     them: until the web app has both, the sign-in and sign-up pages say sign-in is not set
+     up, and still accept what is typed.
 3. Copy the Postgres connection string into `DATABASE_URL`.
 4. **Do this before writing a single table:** in the Supabase SQL editor, confirm Row Level
    Security is enabled by default on new tables in your project settings. Every table created
    from Phase 1 onward must have RLS policies — this is a non-negotiable from the original
    stack requirements, not optional hardening.
+
+### 2a. Accounts and sign-in
+
+The web app signs people in with Supabase Auth, by email and password or with Google. The
+tool (`/check`) needs a signed-in visitor; the landing page, About and Privacy do not. The
+API refuses any request without a valid token except `/health`, and a route added later is
+closed until it is marked public. Set this up once per Supabase project:
+
+1. **Authentication > URL Configuration.** Set **Site URL** to the production domain. Under
+   **Redirect URLs** add `https://<production-domain>/**`, for previews
+   `https://*-<team>.vercel.app/**`, and `http://localhost:3000/**` while developing. Without
+   the entry, Google and emailed links land on the Site URL instead of `/auth/callback`.
+2. **Authentication > Providers > Google.** In Google Cloud Console create an OAuth client ID
+   of type _Web application_. Add the production domain and `http://localhost:3000` as
+   authorised JavaScript origins, and the callback URL shown on Supabase's Google page as the
+   authorised redirect URI. Paste the client ID and secret into Supabase and enable the
+   provider. Only the `openid`, email and profile scopes are needed.
+3. **Email.** Supabase's built-in mailer delivers only to addresses on your Supabase
+   organisation's team, at two messages an hour. People who sign up with a password need a
+   custom SMTP provider (Authentication > Emails > SMTP Settings). Until one is set, Google
+   sign-in works for everyone. Switching "Confirm email" off instead lets anyone create an
+   account under an address they do not own.
+4. **Email templates** (Authentication > Email Templates). Point each link at this site, so
+   it works when opened on another device or in a mail app's own browser. The defaults work
+   only in the browser that asked.
+   - **Confirm signup:** `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+   - **Reset password:** `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
+
+   A reset link always ends at `/reset-password`, whatever else the address says. A link that
+   has run out sends the person to `/forgot-password` to ask for another.
+
+5. **API.** On Render set `SUPABASE_URL` to the project URL. If Project Settings > JWT Keys
+   still shows the legacy secret, also set `SUPABASE_JWT_SECRET`, or migrate the project to
+   signing keys, which needs no secret. In production the API will not start without
+   `SUPABASE_URL`; `AUTH_REQUIRED=false` switches enforcement off, and is logged at boot.
+6. **Keep the project awake.** A Supabase Free project is paused after a week without
+   activity, and its address stops resolving. Sign-in lives in the same project, so a paused
+   project locks everyone out of the tool, not just the reference data. Restore it from the
+   dashboard (Restore project), then either move to a paid plan or send a request to it at
+   least every few days.
 
 ### 3. Qwen (optional — remote OCR and model notes)
 
@@ -217,10 +264,12 @@ times actually become a problem. Don't spend Phase 0 time on it now.
    the repo root, because `@allergy-checker/shared` must be compiled to `dist/` before
    `next build` can resolve it — and `engines` in `apps/web/package.json` selects Node 22.
 3. Add `NEXT_PUBLIC_API_URL` (the Render URL) for Production and Preview. A production build
-   refuses to run without it. Because Next.js inlines `NEXT_PUBLIC_*` at build time,
-   changing this value later requires a **redeploy**, not just an env var edit. Do **not**
-   add `SUPABASE_SERVICE_ROLE_KEY` or `QWEN_API_KEY` here — neither belongs in a browser
-   bundle.
+   refuses to run without it. Add `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the project URL and its public key) the same way: nobody
+   can sign in without them, and a production build refuses to run without them too. Because
+   Next.js inlines `NEXT_PUBLIC_*` at build time, changing any of these later requires a
+   **redeploy**, not just an env var edit. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` or
+   `QWEN_API_KEY` here — neither belongs in a browser bundle.
 4. Deploy, then add the production domain to the API's `CORS_ORIGIN`.
 
 ### 7. Render (API deployment)
@@ -239,10 +288,11 @@ the dashboard equivalents are given in case you'd rather click through it.
    monorepo as its build context to resolve the pnpm workspace, and Render makes nothing
    outside the root directory available at build time.
 3. Set the environment variables Render prompts for (they are declared `sync: false` in
-   `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`,
+   `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`, `SUPABASE_URL`,
    `CORS_ORIGIN=https://<vercel-domain>`, and optionally `QWEN_API_KEY`, `SENTRY_DSN` and
-   `ALERT_WEBHOOK_URL`. `CORS_ORIGIN` is not optional: in production the API refuses to
-   start without it rather than reflect any origin. A Blueprint also sets `NODE_ENV`,
+   `ALERT_WEBHOOK_URL`. `CORS_ORIGIN` and `SUPABASE_URL` are not optional: in production the
+   API refuses to start without them, rather than reflect any origin or answer someone who
+   has not signed in (see "Accounts and sign-in"). A Blueprint also sets `NODE_ENV`,
    `TRUST_PROXY` and `SENTRY_ENVIRONMENT` from `render.yaml`, but a service created by
    hand never reads that file: add `TRUST_PROXY=true` yourself, or the rate limiter counts
    every visitor as one caller. (`NODE_ENV=production` is already set in the Docker

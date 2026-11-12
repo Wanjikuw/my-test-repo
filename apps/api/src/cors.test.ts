@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from './index';
 
 /**
- * What a browser is told about cross-origin access. The API is public and unauthenticated
- * today, but the allowlist is still the thing that keeps an arbitrary site from calling it on
- * a visitor's behalf, and it is easy to break in a dependency upgrade without any other test
- * noticing: resolveCorsOrigin is unit-tested, but nothing else exercised the headers.
+ * What a browser is told about cross-origin access. The allowlist is what keeps an arbitrary
+ * site from calling this API on a visitor's behalf, and it is easy to break in a dependency
+ * upgrade without any other test noticing: resolveCorsOrigin is unit-tested, but nothing else
+ * exercised the headers.
  */
 const APP = 'https://angalia.example';
 const PREVIEW = 'https://angalia-preview.example';

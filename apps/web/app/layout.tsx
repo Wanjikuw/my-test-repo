@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import localFont from 'next/font/local';
 import Link from 'next/link';
+import { AccountMenu } from '../components/auth/account-menu';
 import { WarmApi } from '../components/warm-api';
 import './globals.css';
 
@@ -38,13 +39,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-dvh">
         <WarmApi />
         <header className="border-b border-line">
-          <nav className="mx-auto flex max-w-5xl items-baseline gap-6 px-5 py-4">
+          <nav className="mx-auto flex max-w-5xl items-baseline gap-4 px-5 py-4 sm:gap-6">
             <Link href="/" className="font-serif text-xl">
               Angalia
             </Link>
-            <Link href="/check" className="text-sm text-muted hover:text-ink">
+            <Link
+              href="/check"
+              prefetch={false}
+              className="text-sm whitespace-nowrap text-muted hover:text-ink"
+            >
               Check a label
             </Link>
+            <AccountMenu />
           </nav>
         </header>
 

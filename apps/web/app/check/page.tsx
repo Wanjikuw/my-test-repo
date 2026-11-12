@@ -1,6 +1,7 @@
 'use client';
 
 import type { AnalyzeResponse, Capabilities } from '@allergy-checker/shared';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { analyze, ApiError, getCapabilities, NO_CAPABILITIES } from '../../lib/api';
 import { annotate } from '../../lib/annotate';
@@ -23,6 +24,10 @@ export default function CheckPage() {
   const [label, setLabel] = useState('');
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The API turned the visitor away because their sign-in has lapsed. Said apart from other
+  // failures, because the remedy is different, and offered as a link rather than a redirect
+  // so what they pasted is still on the page when they come back to it.
+  const [signedOut, setSignedOut] = useState(false);
   const [pending, setPending] = useState(false);
   // The name of a pick already on the label, so refusing it is visible rather than silent.
   const [duplicate, setDuplicate] = useState<string | null>(null);
@@ -55,6 +60,7 @@ export default function CheckPage() {
     setPending(true);
     setSlow(false);
     setError(null);
+    setSignedOut(false);
     try {
       setResult(
         await analyze(
@@ -64,6 +70,7 @@ export default function CheckPage() {
       );
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Something went wrong.');
+      setSignedOut(cause instanceof ApiError && cause.status === 401);
       setResult(null);
     } finally {
       setPending(false);
@@ -75,6 +82,7 @@ export default function CheckPage() {
     const outcome = replaceName(label, printed, inciName);
     if (!outcome.replaced) {
       setError(`${printed} is no longer on the label as printed, so nothing was substituted.`);
+      setSignedOut(false);
       return;
     }
     setLabel(outcome.label);
@@ -148,12 +156,16 @@ export default function CheckPage() {
       </form>
 
       {error && (
-        <p
-          role="alert"
-          className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid"
-        >
-          {error}
-        </p>
+        <div className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid">
+          <p role="alert">{error}</p>
+          {signedOut && (
+            <p className="mt-2">
+              <Link href="/login?next=%2Fcheck" className="underline underline-offset-4">
+                Sign in again
+              </Link>
+            </p>
+          )}
+        </div>
       )}
 
       {result && (

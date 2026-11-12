@@ -39,12 +39,19 @@ services:
       - key: SENTRY_ENVIRONMENT
         value: production
       # `sync: false` keeps the value out of this committed file — set each one in the
-      # Render dashboard. CORS_ORIGIN is not optional: the API refuses to start in
-      # production rather than reflect an arbitrary origin.
+      # Render dashboard. CORS_ORIGIN and SUPABASE_URL are not optional: the API refuses to
+      # start in production without them, rather than reflect any origin or answer anyone
+      # who has not signed in.
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      # Only while the Supabase project still signs with the legacy JWT secret. Add it by hand
+      # in that case; a project on signing keys needs nothing here.
+      # - key: SUPABASE_JWT_SECRET
+      #   sync: false
       - key: QWEN_API_KEY
         sync: false
       - key: SENTRY_DSN
