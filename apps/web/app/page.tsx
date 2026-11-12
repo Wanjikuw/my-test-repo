@@ -63,8 +63,8 @@ const LIMITS = [
     body: 'Every flag names the provision behind it — the annex and the entry number — so the claim can be checked rather than trusted.',
   },
   {
-    heading: 'It will not ask you to sign up',
-    body: 'Skin type and declared allergies stay on your device. The analysis needs nothing that would have to be stored.',
+    heading: 'It will not keep your skin profile',
+    body: 'Skin type and declared allergies stay on your device, and are sent only with each check. An account is needed to check a label. It holds your name and email address, not your skin profile and not the labels you check.',
   },
 ];
 
@@ -199,8 +199,8 @@ export default function HomePage() {
             Paste a list, or point the camera at the back of the bottle.
           </h2>
           <p className="mt-5 max-w-lg leading-relaxed text-muted">
-            By default a photograph is read on your device and nothing is uploaded. No account is
-            required.
+            By default a photograph is read on your device and nothing is uploaded. Checking a label
+            needs an account.
           </p>
           <Link
             href="/check"

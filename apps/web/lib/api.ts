@@ -14,6 +14,7 @@ import type {
   SkinType,
   SunExposure,
 } from '@allergy-checker/shared';
+import { getAccessToken } from './auth/token';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -64,7 +65,8 @@ function isAbort(cause: unknown): boolean {
 /**
  * One request with a deadline. `signal` is the caller's own, for replacing a request that is
  * no longer wanted: that is rethrown as an abort and never reported, whereas a deadline that
- * runs out is.
+ * runs out is. The signed-in visitor's token goes with every call; asking for it is inside the
+ * deadline, because renewing an expired one is itself a request.
  */
 async function request<T>(
   path: string,
@@ -85,7 +87,14 @@ async function request<T>(
   const slow = options.onSlow ? setTimeout(options.onSlow, SLOW_AFTER_MS) : undefined;
 
   try {
-    const response = await fetch(`${BASE}${path}`, { ...init, signal: controller.signal });
+    const token = await getAccessToken();
+    const headers = new Headers(init.headers);
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
     return await unwrap<T>(response);
   } catch (cause) {
     if (cause instanceof ApiError) throw cause;

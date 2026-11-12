@@ -107,7 +107,13 @@ research. Consequences:
 
 - Mobile is the shop-aisle case and must support **camera capture for OCR**; desktop must
   support it too where a webcam exists. Paste and manual entry are always available.
-- Never gate the tool behind sign-in. The skin profile lives in local state first.
+- The tool sits behind sign-in, and the API enforces it. That reverses an earlier rule of this
+  file ("never gate the tool behind sign-in"), at the owner's decision on 4 November 2026. The
+  landing page, About and Privacy stay public, so a visitor can read how it works and what an
+  account stores before making one. The skin profile still lives in local state first: signing
+  in does not sync it, and nothing about it is stored against the account. The sign-in and
+  sign-up screens are part of the tool's language: plain, no photography, no marketing
+  furniture, and the same tone as the rest of the flow.
 - Check long INCI names at 390 px. They wrap, and a highlight sliced across the break reads
   as a rendering fault.
 

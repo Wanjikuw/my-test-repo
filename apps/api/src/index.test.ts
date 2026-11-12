@@ -18,7 +18,7 @@ describe('resolveCorsOrigin', () => {
     expect(resolveCorsOrigin({ NODE_ENV: 'development' })).toBe(true);
   });
 
-  // Failing open here would expose the API to every website the moment auth lands.
+  // Failing open here would expose the API to every website, with every visitor's sign-in.
   it('refuses to start in production without an allowlist', () => {
     expect(() => resolveCorsOrigin({ NODE_ENV: 'production' })).toThrow(/CORS_ORIGIN must be set/);
   });

@@ -14,6 +14,9 @@ import { assistRoutes } from './routes/assist';
 import { loadContextLazily, type LoadContext } from './routes/support';
 import type { QwenConfig } from './assist/qwen';
 import { captureServerError, initObservability } from './observability';
+import { resolveAuth } from './auth/config';
+import { registerAuth } from './auth/guard';
+import type { TokenVerifier } from './auth/verify';
 
 export interface RateLimitSettings {
   max: number;
@@ -30,6 +33,11 @@ export interface ServerOptions {
   qwen?: QwenConfig | null;
   /** Stands in for the network on the model-assisted routes, so tests never call Qwen. */
   fetch?: typeof fetch;
+  /**
+   * Overrides the env-derived sign-in check. `false` leaves every route open, which is for
+   * tests; a function enforces sign-in with it, so a test can do so without a Supabase project.
+   */
+  auth?: TokenVerifier | false;
 }
 
 /**
@@ -109,7 +117,15 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     reply.status(statusCode).send({ error: error.message, requestId: request.id });
   });
 
-  await server.register(cors, { origin: resolveCorsOrigin() });
+  // maxAge lets a browser reuse a preflight for ten minutes instead of the five seconds it
+  // assumes when the header is absent.
+  await server.register(cors, { origin: resolveCorsOrigin(), maxAge: 600 });
+
+  const verifier = options.auth === undefined ? resolveAuth() : options.auth || null;
+  registerAuth(server, verifier);
+  if (!verifier && process.env.NODE_ENV === 'production') {
+    server.log.warn('AUTH_REQUIRED=false: this API answers callers who have not signed in.');
+  }
 
   const routeOptions = options.loadContext ? { loadContext: options.loadContext } : {};
   await server.register(healthRoutes);
