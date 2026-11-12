@@ -15,9 +15,11 @@ const SECTIONS = [
     ],
   },
   {
-    heading: 'What stays on your device',
+    heading: 'Your skin profile',
     paragraphs: [
-      'Your skin type, sun exposure and declared allergies are kept in this browser, in local storage under the name angalia-profile. They are not part of your account: they are not synchronised, and signing in on another device does not bring them across. They are sent to the service only inside an analysis request. Clearing the data this site stores removes them.',
+      'Your skin type, the reactions you report (such as stinging or a reaction to fragrance), sun exposure and declared allergies are kept in this browser, in local storage under the name angalia-profile. They are sent to the service only inside an analysis request. Clearing the data this site stores removes them.',
+      'If you are signed in you can choose “Save to my account”, and only then is a copy stored in your account, in a table that row-level security restricts to you. It is how your profile follows you to another device. Choosing “Remove from my account” deletes that copy at once, and deleting your account deletes it with everything else. Signing out on a device removes the local copy once the account copy is up to date. Skin type and allergies can say something about your health, which is why nothing is saved to your account unless you ask.',
+      'The skin-type questions are scored in your browser, and the answers are not kept or sent anywhere: only the result you accept is stored. The result is cosmetic guidance and not a diagnosis.',
     ],
   },
   {
@@ -69,7 +71,7 @@ export default function PrivacyPage() {
       ))}
 
       <p className="mt-12 text-xs text-muted">
-        Last updated 11 November 2026. This page describes how the service behaves today, and
+        Last updated 12 November 2026. This page describes how the service behaves today, and
         changes when it does.
       </p>
     </main>

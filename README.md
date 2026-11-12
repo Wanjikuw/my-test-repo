@@ -205,6 +205,13 @@ closed until it is marked public. Set this up once per Supabase project:
    project locks everyone out of the tool, not just the reference data. Restore it from the
    dashboard (Restore project), then either move to a paid plan or send a request to it at
    least every few days.
+7. **Create the profile table.** Run `apps/api/drizzle/manual/0002_user_profiles.sql` once in
+   the Supabase SQL editor. It creates `public.user_profiles` (one row per user, row-level
+   security so a person can only touch their own, `updated_at` set by the database) and is safe
+   to run again. Without it the check page still works; the "Save to my account" button
+   reports that the account could not be reached. A row exists only after the person chooses to
+   save, and it is deleted with the account. After running it, confirm in Table Editor that RLS
+   shows as enabled.
 
 ### 3. Qwen (optional — remote OCR and model notes)
 
