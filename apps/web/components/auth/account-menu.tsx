@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { displayName } from '../../lib/auth/display';
 import { hasSessionCookie } from '../../lib/auth/session-hint';
+import { clearSyncedProfile } from '../../lib/profile-storage';
 
 type State = { status: 'unknown' } | { status: 'out' } | { status: 'in'; name: string };
 
@@ -51,6 +52,7 @@ export function AccountMenu() {
       // This browser only. The default would end the account's sessions on every device.
       await getBrowserClient().auth.signOut({ scope: 'local' });
     } finally {
+      clearSyncedProfile(window.localStorage);
       window.location.assign('/');
     }
   }
