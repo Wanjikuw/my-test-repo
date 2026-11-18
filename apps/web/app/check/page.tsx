@@ -12,6 +12,7 @@ import { ProfileControls } from '../../components/profile-controls';
 import { Verdict } from '../../components/verdict';
 import { IngredientRow } from '../../components/ingredient-row';
 import { LabelCapture } from '../../components/label-capture';
+import { BarcodeLookup } from '../../components/barcode-lookup';
 import { IngredientSearch } from '../../components/ingredient-search';
 import { ModelNotes } from '../../components/model-notes';
 
@@ -131,6 +132,14 @@ export default function CheckPage() {
           />
           <div className="mt-3">
             <LabelCapture onText={setLabel} capabilities={capabilities} />
+          </div>
+          <div className="mt-4">
+            <BarcodeLookup
+              onText={(text) => {
+                setLabel(text);
+                setDuplicate(null);
+              }}
+            />
           </div>
         </div>
 

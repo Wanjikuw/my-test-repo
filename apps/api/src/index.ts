@@ -11,6 +11,7 @@ import { healthRoutes } from './routes/health';
 import { analyzeRoutes } from './routes/analyze';
 import { ingredientRoutes } from './routes/ingredients';
 import { assistRoutes } from './routes/assist';
+import { productRoutes } from './routes/product';
 import { loadContextLazily, type LoadContext } from './routes/support';
 import type { QwenConfig } from './assist/qwen';
 import { captureServerError, initObservability } from './observability';
@@ -131,6 +132,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   await server.register(healthRoutes);
   await server.register(analyzeRoutes, routeOptions);
   await server.register(ingredientRoutes, routeOptions);
+  await server.register(productRoutes, { fetch: options.fetch });
   await server.register(assistRoutes, {
     loadContext: options.loadContext,
     qwen: options.qwen,
