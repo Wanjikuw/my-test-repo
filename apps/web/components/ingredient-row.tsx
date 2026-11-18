@@ -1,4 +1,4 @@
-import { CATEGORY_LABEL, STATUS_LABEL, type AnnotatedName } from '../lib/annotate';
+import { CATEGORY_LABEL, PLACEMENT_NOTE, STATUS_LABEL, type AnnotatedName } from '../lib/annotate';
 
 const MARKER: Record<AnnotatedName['annotation'], string> = {
   flagged: 'border-l-avoid',
@@ -81,6 +81,10 @@ export function IngredientRow({ name }: { name: AnnotatedName }) {
 
       {name.annotation === 'clean' && (
         <p className="mt-2 text-sm text-muted">Identified, with no risk on record.</p>
+      )}
+
+      {name.placement && (
+        <p className="mt-2 text-xs text-muted">{PLACEMENT_NOTE[name.placement]}</p>
       )}
 
       {name.citation && (

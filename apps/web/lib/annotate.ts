@@ -22,11 +22,32 @@ type Explanation = ScoredResult['explanations'][number];
  */
 export type Annotation = 'flagged' | 'noted' | 'clean' | 'unread';
 
+/** Where an entry sat in the printed list. Labels list the largest shares first. */
+export type Placement = 'early' | 'middle' | 'late';
+
+/** Below this many entries a third of the list says nothing useful. */
+const MIN_ENTRIES_FOR_PLACEMENT = 6;
+
+export function placementOf(position: number, entries: number): Placement | null {
+  if (entries < MIN_ENTRIES_FOR_PLACEMENT || position < 0 || position >= entries) return null;
+  const fraction = position / (entries - 1);
+  if (fraction < 1 / 3) return 'early';
+  return fraction > 2 / 3 ? 'late' : 'middle';
+}
+
+export const PLACEMENT_NOTE: Record<Placement, string> = {
+  early: 'Listed early, so likely a larger share of the product.',
+  middle: 'Listed in the middle of the label.',
+  late: 'Listed near the end, so probably a small amount. Order only reflects amount above 1%.',
+};
+
 export interface AnnotatedName {
   /** The text as printed on the label. */
   printed: string;
   /** Zero-based index of the printed entry. */
   position: number;
+  /** Display only: it never feeds the verdict. Null for an unread name or a short label. */
+  placement: Placement | null;
   /** The INCI name it resolved to, where that differs from what was printed. */
   resolved: string | null;
   annotation: Annotation;
@@ -53,6 +74,10 @@ export interface AnnotatedName {
  * sat, and no sort.
  */
 export function annotate(result: AnalyzeResponse): AnnotatedName[] {
+  let entries = 0;
+  for (const m of result.matched) entries = Math.max(entries, m.position + 1);
+  for (const u of result.unmatched) entries = Math.max(entries, u.position + 1);
+
   const reasonsFor = new Map<string, Explanation[]>();
   for (const explanation of result.explanations) {
     const existing = reasonsFor.get(explanation.ingredientName);
@@ -69,6 +94,7 @@ export function annotate(result: AnalyzeResponse): AnnotatedName[] {
     return {
       printed: match.matchedFrom,
       position: match.position,
+      placement: onRecord ? placementOf(match.position, entries) : null,
       resolved: differsBeyondCase ? match.inciName : null,
       annotation: reasons.length > 0 ? 'flagged' : onRecord ? 'noted' : 'clean',
       strategy: match.strategy,
@@ -85,6 +111,7 @@ export function annotate(result: AnalyzeResponse): AnnotatedName[] {
   const unread = result.unmatched.map((entry): AnnotatedName => ({
     printed: entry.rawText,
     position: entry.position,
+    placement: null,
     resolved: null,
     annotation: 'unread',
     strategy: null,
