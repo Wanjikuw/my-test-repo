@@ -9,7 +9,12 @@ import type {
   Suggestion,
   SunExposure,
 } from '@allergy-checker/shared';
-import { commonNameVariant, looseInciName, normaliseInciName } from './normalise';
+import {
+  commonNameVariant,
+  foldOcrDigitSlips,
+  looseInciName,
+  normaliseInciName,
+} from './normalise';
 import { distanceBudget, suggestFor } from './fuzzy';
 import { MAX_ALTERNATE_PARTS, MAX_NAME_CHARS } from './limits';
 
@@ -251,10 +256,33 @@ function conflictsFor(categories: RiskCategory[], rules: SensitivityRule[]): Ski
     .map((rule) => ({ riskCategory: rule.riskCategory, interactionNote: rule.interactionNote }));
 }
 
-function suggestionsFor(index: IngredientIndex, query: string): Suggestion[] {
+const MAX_SUGGESTIONS = 3;
+
+function nearbyFor(index: IngredientIndex, query: string): Suggestion[] {
   const budget = distanceBudget(query);
   if (budget === 0) return [];
   return suggestFor(query, candidatesWithin(index, query.length, budget), budget);
+}
+
+function suggestionsFor(index: IngredientIndex, query: string): Suggestion[] {
+  const found = nearbyFor(index, query);
+  const repaired = foldOcrDigitSlips(query);
+  if (repaired === query) return found;
+
+  // A repaired name that is exactly a known one is a suggestion, not a match: the repair is
+  // a guess about what the camera misread, so the user confirms it.
+  const exact = lookup(index, repaired);
+  const merged = new Map(found.map((s) => [s.candidate, s]));
+  const offer = (s: Suggestion) => {
+    const seen = merged.get(s.candidate);
+    if (!seen || s.distance < seen.distance) merged.set(s.candidate, s);
+  };
+  if (exact) offer({ candidate: exact.record.inciName, distance: 1 });
+  for (const s of nearbyFor(index, repaired)) offer(s);
+
+  return [...merged.values()]
+    .sort((x, y) => x.distance - y.distance || x.candidate.localeCompare(y.candidate))
+    .slice(0, MAX_SUGGESTIONS);
 }
 
 export interface MatchOptions {

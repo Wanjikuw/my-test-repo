@@ -281,6 +281,38 @@ describe('fuzzy suggestions', () => {
   });
 });
 
+describe('OCR digit and letter slips', () => {
+  const NUMBERED = buildIngredientIndex([
+    ingredient({ id: 'peg', inciName: 'PEG-40' }),
+    ingredient({ id: 'ci', inciName: 'CI 77010' }),
+    ingredient({ id: 'oil', inciName: 'Simmondsia Chinensis Seed Oil' }),
+  ]);
+  const suggest = (name: string) =>
+    analyseNames([name], NUMBERED, RULES, {
+      skinType: null,
+      suggestUnmatched: true,
+    }).unrecognised[0]?.suggestions.map((s) => s.candidate);
+
+  // A lost hyphen and a read O are two edits, over the one allowed for a name this short.
+  it('suggests PEG-40 for PEG 4O, which plain edit distance cannot reach', () => {
+    expect(suggest('PEG 4O')).toEqual(['PEG-40']);
+  });
+
+  it('suggests a colour index entry that is exact once two slips are repaired', () => {
+    expect(suggest('CI 77OlO')).toEqual(['CI 77010']);
+  });
+
+  it('still never matches: the repaired name is a suggestion for the user to confirm', () => {
+    const analysis = analyseNames(['CI 77OlO'], NUMBERED, RULES, { skinType: null });
+    expect(analysis.result.matches).toEqual([]);
+    expect(analysis.result.unmatched.map((u) => u.rawText)).toEqual(['CI 77OlO']);
+  });
+
+  it('leaves ordinary words alone', () => {
+    expect(suggest('Simmondsia Chinensis Seed Oi')).toEqual(['Simmondsia Chinensis Seed Oil']);
+  });
+});
+
 describe('printed positions', () => {
   // The interface rebuilds the label from these, so they must survive the split into
   // matched and unmatched rather than being re-derived by searching the text.
