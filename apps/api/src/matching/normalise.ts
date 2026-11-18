@@ -83,6 +83,21 @@ export function normaliseInciName(raw: string): string {
     .replace(SPELLING_VARIANT, (variant) => SPELLING_FOLD[variant] ?? variant);
 }
 
+const LOOKALIKE_DIGIT: Readonly<Record<string, string>> = { o: '0', l: '1', i: '1' };
+
+/**
+ * OCR reads `PEG-40` as `PEG-4O` and `CI 77491` as `CI 7749l`. This repairs a token only when
+ * it is made up entirely of digits and the letters o, l and i, and holds at least one real
+ * digit. `oil`, `lil` and chemical names such as `4-methylbenzylidene` are left alone.
+ *
+ * For suggestions only: a repaired name is offered for the user to confirm, never matched.
+ */
+export function foldOcrDigitSlips(normalised: string): string {
+  return normalised.replace(/\b[0oli1-9]+\b/g, (token) =>
+    /\d/.test(token) ? token.replace(/[oli]/g, (c) => LOOKALIKE_DIGIT[c] ?? c) : token,
+  );
+}
+
 /**
  * Fallback lookup key, with common-name inserts removed. Used only after the strict form
  * misses, because it can in principle merge two distinct chemicals.

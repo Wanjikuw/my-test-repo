@@ -3,10 +3,32 @@ import {
   normaliseInciName,
   looseInciName,
   commonNameVariant,
+  foldOcrDigitSlips,
   parseIngredientList,
   stripTrailingPercent,
   trimTrailingNoise,
 } from './normalise';
+
+describe('foldOcrDigitSlips', () => {
+  it('repairs lookalike letters inside a number', () => {
+    expect(foldOcrDigitSlips('peg 4o')).toBe('peg 40');
+    expect(foldOcrDigitSlips('ci 7749l')).toBe('ci 77491');
+    expect(foldOcrDigitSlips('polysorbate 2o')).toBe('polysorbate 20');
+  });
+
+  it('leaves words and chemical names that merely contain those letters', () => {
+    expect(foldOcrDigitSlips('simmondsia chinensis seed oil')).toBe(
+      'simmondsia chinensis seed oil',
+    );
+    expect(foldOcrDigitSlips('4-methylbenzylidene camphor')).toBe('4-methylbenzylidene camphor');
+    expect(foldOcrDigitSlips('1,2-hexanediol')).toBe('1,2-hexanediol');
+  });
+
+  it('needs at least one real digit, so a lone word like oil is never changed', () => {
+    expect(foldOcrDigitSlips('oil')).toBe('oil');
+    expect(foldOcrDigitSlips('lil')).toBe('lil');
+  });
+});
 
 describe('parseIngredientList', () => {
   it('splits an ordinary comma-separated label', () => {
