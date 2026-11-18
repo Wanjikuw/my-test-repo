@@ -37,6 +37,12 @@ const SECTIONS = [
     ],
   },
   {
+    heading: 'Barcode lookup',
+    paragraphs: [
+      'If you look a product up by barcode, the Angalia service asks Open Beauty Facts, a volunteer-run database, for its ingredient list. Only the barcode you typed is sent, from the Angalia service and not from your device, so Open Beauty Facts does not see your IP address. The list it returns is unchecked and is shown for you to correct.',
+    ],
+  },
+  {
     heading: 'Cookies and tracking',
     paragraphs: [
       'The site sets cookies only to keep you signed in. Their names begin with sb-, and signing out removes them. There are no analytics or advertising cookies, and no analytics or advertising scripts are loaded.',

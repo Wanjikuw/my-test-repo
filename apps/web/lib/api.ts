@@ -11,6 +11,7 @@ import type {
   IngredientSearchResponse,
   NotesResponse,
   OcrResponse,
+  ProductResponse,
   SkinType,
   SunExposure,
 } from '@allergy-checker/shared';
@@ -181,6 +182,11 @@ export async function getCapabilities(signal: AbortSignal): Promise<Capabilities
 /** Sends a photograph to the server's remote OCR model. The caller has told the user so. */
 export function readLabelRemotely(imageDataUrl: string): Promise<OcrResponse> {
   return post<OcrResponse>('/ocr', { image: imageDataUrl });
+}
+
+/** The printed ingredient list for a barcode, from Open Beauty Facts via the API. */
+export function lookupProduct(barcode: string, signal: AbortSignal): Promise<ProductResponse> {
+  return get<ProductResponse>(`/product/${encodeURIComponent(barcode)}`, signal);
 }
 
 /** Model notes on names the reference data could not identify. Advisory, never scored. */
