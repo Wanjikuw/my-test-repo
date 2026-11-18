@@ -181,7 +181,10 @@ export default function CheckPage() {
 
       {result && (
         <section ref={resultRef} tabIndex={-1} aria-label="Result" className="mt-12 outline-none">
-          <Verdict result={result} />
+          <Verdict
+            result={result}
+            flagged={names.filter((n) => n.annotation === 'flagged').map((n) => n.printed)}
+          />
 
           {notes.length > 0 && (
             <section
