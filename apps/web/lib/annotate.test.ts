@@ -1,6 +1,6 @@
 import type { AnalyzeResponse, MatchedIngredient } from '@allergy-checker/shared';
 import { describe, expect, it } from 'vitest';
-import { annotate } from './annotate';
+import { annotate, placementOf } from './annotate';
 
 function matched(inciName: string, position: number, over: Partial<MatchedIngredient> = {}) {
   return {
@@ -30,6 +30,51 @@ function response(over: Partial<AnalyzeResponse>): AnalyzeResponse {
     ...over,
   };
 }
+
+describe('placementOf', () => {
+  it('splits a label into thirds', () => {
+    expect(placementOf(0, 9)).toBe('early');
+    expect(placementOf(4, 9)).toBe('middle');
+    expect(placementOf(8, 9)).toBe('late');
+  });
+
+  it('says nothing for a short label or an impossible position', () => {
+    expect(placementOf(0, 5)).toBeNull();
+    expect(placementOf(9, 9)).toBeNull();
+    expect(placementOf(-1, 9)).toBeNull();
+  });
+});
+
+describe('annotate placement', () => {
+  const risky = { riskCategories: ['fragrance_allergen'] } as const;
+  const label = (flag: number) =>
+    response({
+      matched: Array.from({ length: 8 }, (_, i) =>
+        matched(`Name${i}`, i, i === flag ? { riskCategories: [...risky.riskCategories] } : {}),
+      ),
+    });
+
+  it('places an ingredient that has something on record', () => {
+    expect(annotate(label(0))[0]?.placement).toBe('early');
+    expect(annotate(label(7))[7]?.placement).toBe('late');
+  });
+
+  it('leaves benign ingredients without a hint, and never changes the annotation', () => {
+    const names = annotate(label(7));
+    expect(names[0]?.placement).toBeNull();
+    expect(names[7]?.annotation).toBe('noted');
+  });
+
+  it('gives an unread name no placement', () => {
+    const names = annotate(
+      response({
+        matched: Array.from({ length: 7 }, (_, i) => matched(`Name${i}`, i)),
+        unmatched: [{ rawText: 'Xyzzyne', position: 7, suggestions: [] }],
+      }),
+    );
+    expect(names[7]?.placement).toBeNull();
+  });
+});
 
 describe('annotate', () => {
   it('rebuilds the label in printed order from the two lists', () => {
