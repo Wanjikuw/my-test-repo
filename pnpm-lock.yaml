@@ -71,7 +71,7 @@ importers:
         version: 18.0.9
       drizzle-orm:
         specifier: 0.45.4
-        version: 0.45.4(@opentelemetry/api@1.9.1)(postgres@3.4.4)
+        version: 0.45.4(@opentelemetry/api@1.9.1)(postgres@4.1.1)
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
@@ -79,8 +79,8 @@ importers:
         specifier: 5.10.0
         version: 5.10.0
       postgres:
-        specifier: 3.4.4
-        version: 3.4.4
+        specifier: 4.1.1
+        version: 4.1.1
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -2570,9 +2570,9 @@ packages:
     resolution: {integrity: sha512-LJlKCCAUFKOuZxipUdYw1NzIITEsPcgyOG9LkvRJvuKj/bRzbuRY0ARXvL0pWGpsZvn8jku+LMep2eU0seHp8g==}
     engines: {node: ^10 || ^12 || >=14}
 
-  postgres@3.4.4:
-    resolution: {integrity: sha512-IbyN+9KslkqcXa8AO9fxpk97PA4pzewvpi2B3Dwy9u4zpV32QicaEdgmF3eSQUzdRk7ttDHQejNgAEr4XoeH4A==}
-    engines: {node: '>=12'}
+  postgres@4.1.1:
+    resolution: {integrity: sha512-1kJDojqNZC+iTHHXh6eif0J98LUtyLAePe/qkW1GK35eh2JixlsAiIKq3FGI+xqI+SUGTNodzf7TScVeIIyUug==}
+    engines: {node: '>=18'}
 
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -4419,10 +4419,10 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.23.15
 
-  drizzle-orm@0.45.4(@opentelemetry/api@1.9.1)(postgres@3.4.4):
+  drizzle-orm@0.45.4(@opentelemetry/api@1.9.1)(postgres@4.1.1):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
-      postgres: 3.4.4
+      postgres: 4.1.1
 
   emoji-regex@10.6.0: {}
 
@@ -5028,7 +5028,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  postgres@3.4.4: {}
+  postgres@4.1.1: {}
 
   prelude-ls@1.2.1: {}
 
