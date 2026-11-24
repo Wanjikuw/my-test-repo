@@ -17,7 +17,9 @@ afterEach(() => vi.unstubAllEnvs());
 
 async function server(auth: TokenVerifier | false = verifier) {
   vi.stubEnv('CORS_ORIGIN', APP);
-  return buildServer({ logger: false, rateLimit: false, auth });
+  const app = await buildServer({ logger: false, rateLimit: false, auth });
+  app.get('/ping', async () => ({ ok: true }));
+  return app;
 }
 
 // The first server of a run pays for loading every plugin, which is slow on a busy machine.
@@ -27,12 +29,10 @@ beforeAll(async () => {
 }, 30_000);
 
 const CLOSED = [
-  ['GET', '/capabilities'],
   ['GET', '/ingredients?q=glycerin'],
   ['GET', '/ingredients/99999999-9999-4999-8999-999999999999'],
   ['POST', '/analyze'],
-  ['POST', '/ocr'],
-  ['POST', '/notes'],
+  ['GET', '/product/3600523307845'],
 ] as const;
 
 describe('bearerToken', () => {
@@ -79,7 +79,7 @@ describe('sign-in enforcement', () => {
     const app = await server();
     const res = await app.inject({
       method: 'GET',
-      url: '/capabilities',
+      url: '/ping',
       headers: { authorization: 'Basic dXNlcjpwYXNz' },
     });
 
@@ -90,7 +90,7 @@ describe('sign-in enforcement', () => {
     const app = await server();
     const res = await app.inject({
       method: 'GET',
-      url: '/capabilities',
+      url: '/ping',
       headers: bearer('forged'),
     });
 
@@ -103,12 +103,12 @@ describe('sign-in enforcement', () => {
   it('lets a valid token through to the route, which then does its own checks', async () => {
     const app = await server();
 
-    const capabilities = await app.inject({
+    const ping = await app.inject({
       method: 'GET',
-      url: '/capabilities',
+      url: '/ping',
       headers: bearer('good-token'),
     });
-    expect(capabilities.statusCode).toBe(200);
+    expect(ping.statusCode).toBe(200);
 
     const analyze = await app.inject({
       method: 'POST',
@@ -147,7 +147,7 @@ describe('sign-in enforcement', () => {
     const app = await server();
     const res = await app.inject({
       method: 'GET',
-      url: '/capabilities',
+      url: '/ping',
       headers: bearer('outage'),
     });
 
@@ -159,7 +159,7 @@ describe('sign-in enforcement', () => {
     const app = await server(false);
     app.get('/whoami', async (request) => ({ user: request.authUser }));
 
-    expect((await app.inject({ method: 'GET', url: '/capabilities' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/ping' })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/whoami' })).json()).toEqual({ user: null });
   });
 });
@@ -206,6 +206,7 @@ describe('sign-in enforcement and the browser', () => {
       rateLimit: { max: 2, timeWindow: '1 minute' },
       auth: verifier,
     });
+    app.get('/ping', async () => ({ ok: true }));
     const preflight = {
       origin: APP,
       'access-control-request-method': 'GET',
@@ -213,12 +214,32 @@ describe('sign-in enforcement and the browser', () => {
     };
 
     for (let i = 0; i < 6; i++) {
-      const res = await app.inject({ method: 'OPTIONS', url: '/capabilities', headers: preflight });
+      const res = await app.inject({ method: 'OPTIONS', url: '/ping', headers: preflight });
       expect(res.statusCode).toBe(204);
     }
-    const real = { method: 'GET', url: '/capabilities', headers: bearer('good-token') } as const;
+    const real = { method: 'GET', url: '/ping', headers: bearer('good-token') } as const;
     expect((await app.inject(real)).statusCode).toBe(200);
     expect((await app.inject(real)).statusCode).toBe(200);
     expect((await app.inject(real)).statusCode).toBe(429);
+  });
+});
+
+describe('per-user limit', () => {
+  it('counts a signed-in caller by account, not by address', async () => {
+    vi.stubEnv('CORS_ORIGIN', APP);
+    vi.stubEnv('USER_RATE_LIMIT_MAX', '2');
+    const app = await buildServer({
+      logger: false,
+      rateLimit: { max: 1_000, timeWindow: '1 minute' },
+      auth: verifier,
+    });
+    app.get('/ping', async () => ({ ok: true }));
+    const real = { method: 'GET', url: '/ping', headers: bearer('good-token') } as const;
+
+    expect((await app.inject(real)).statusCode).toBe(200);
+    expect((await app.inject(real)).statusCode).toBe(200);
+    const refused = await app.inject(real);
+    expect(refused.statusCode).toBe(429);
+    expect(Number(refused.headers['retry-after'])).toBeGreaterThan(0);
   });
 });

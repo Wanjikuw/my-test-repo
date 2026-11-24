@@ -7,10 +7,7 @@
  */
 import type {
   AnalyzeResponse,
-  Capabilities,
   IngredientSearchResponse,
-  NotesResponse,
-  OcrResponse,
   ProductResponse,
   SkinType,
   SunExposure,
@@ -167,31 +164,9 @@ export function searchIngredients(
   return get<IngredientSearchResponse>(`/ingredients?${params.toString()}`, signal);
 }
 
-export const NO_CAPABILITIES: Capabilities = { remoteOcr: null, modelNotes: null };
-
-/** Which model-assisted features the server has keys for. Anything unreachable reads as none. */
-export async function getCapabilities(signal: AbortSignal): Promise<Capabilities> {
-  try {
-    return await get<Capabilities>('/capabilities', signal);
-  } catch (cause) {
-    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
-    return NO_CAPABILITIES;
-  }
-}
-
-/** Sends a photograph to the server's remote OCR model. The caller has told the user so. */
-export function readLabelRemotely(imageDataUrl: string): Promise<OcrResponse> {
-  return post<OcrResponse>('/ocr', { image: imageDataUrl });
-}
-
 /** The printed ingredient list for a barcode, from Open Beauty Facts via the API. */
 export function lookupProduct(barcode: string, signal: AbortSignal): Promise<ProductResponse> {
   return get<ProductResponse>(`/product/${encodeURIComponent(barcode)}`, signal);
-}
-
-/** Model notes on names the reference data could not identify. Advisory, never scored. */
-export function describeUnrecognised(names: string[]): Promise<NotesResponse> {
-  return post<NotesResponse>('/notes', { names });
 }
 
 /**

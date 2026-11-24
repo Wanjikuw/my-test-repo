@@ -52,8 +52,6 @@ services:
       # in that case; a project on signing keys needs nothing here.
       # - key: SUPABASE_JWT_SECRET
       #   sync: false
-      - key: QWEN_API_KEY
-        sync: false
       - key: SENTRY_DSN
         sync: false
       - key: ALERT_WEBHOOK_URL

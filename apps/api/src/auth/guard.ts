@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { TokenError, type AuthUser, type TokenVerifier } from './verify';
+import { createUserLimiter, type UserLimitSettings } from './user-limit';
 
 declare module 'fastify' {
   interface FastifyContextConfig {
@@ -37,9 +38,14 @@ function refuse(reply: FastifyReply, message: string): FastifyReply {
  *
  * A null verifier leaves everything open. That is for tests and local development only.
  */
-export function registerAuth(app: FastifyInstance, verifier: TokenVerifier | null): void {
+export function registerAuth(
+  app: FastifyInstance,
+  verifier: TokenVerifier | null,
+  userLimit: UserLimitSettings | false = false,
+): void {
   app.decorateRequest('authUser', null);
   if (!verifier) return;
+  const checkUser = userLimit ? createUserLimiter(userLimit) : null;
 
   app.addHook('onRequest', async (request, reply) => {
     // An unknown path is a 404 for everyone, not a request for credentials.
@@ -57,6 +63,16 @@ export function registerAuth(app: FastifyInstance, verifier: TokenVerifier | nul
       }
       // Could not be checked, which is ours to fix: let the error handler report it.
       throw Object.assign(new Error('Sign-in could not be verified.'), { statusCode: 503 });
+    }
+
+    if (checkUser) {
+      const verdict = checkUser(request.authUser.id);
+      if (!verdict.allowed) {
+        return reply.code(429).header('Retry-After', String(verdict.retryAfterSeconds)).send({
+          error: 'Too many requests. Wait a moment and try again.',
+          requestId: request.id,
+        });
+      }
     }
   });
 }
