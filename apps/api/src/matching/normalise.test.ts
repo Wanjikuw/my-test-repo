@@ -3,8 +3,32 @@ import {
   normaliseInciName,
   looseInciName,
   commonNameVariant,
+  foldOcrDigitSlips,
   parseIngredientList,
+  stripTrailingPercent,
+  trimTrailingNoise,
 } from './normalise';
+
+describe('foldOcrDigitSlips', () => {
+  it('repairs lookalike letters inside a number', () => {
+    expect(foldOcrDigitSlips('peg 4o')).toBe('peg 40');
+    expect(foldOcrDigitSlips('ci 7749l')).toBe('ci 77491');
+    expect(foldOcrDigitSlips('polysorbate 2o')).toBe('polysorbate 20');
+  });
+
+  it('leaves words and chemical names that merely contain those letters', () => {
+    expect(foldOcrDigitSlips('simmondsia chinensis seed oil')).toBe(
+      'simmondsia chinensis seed oil',
+    );
+    expect(foldOcrDigitSlips('4-methylbenzylidene camphor')).toBe('4-methylbenzylidene camphor');
+    expect(foldOcrDigitSlips('1,2-hexanediol')).toBe('1,2-hexanediol');
+  });
+
+  it('needs at least one real digit, so a lone word like oil is never changed', () => {
+    expect(foldOcrDigitSlips('oil')).toBe('oil');
+    expect(foldOcrDigitSlips('lil')).toBe('lil');
+  });
+});
 
 describe('parseIngredientList', () => {
   it('splits an ordinary comma-separated label', () => {
@@ -230,5 +254,48 @@ describe('commonNameVariant', () => {
 
   it('refuses when nothing precedes the insert', () => {
     expect(commonNameVariant('(Jojoba) Seed Oil')).toBeNull();
+  });
+});
+
+describe('trimTrailingNoise', () => {
+  it('drops asterisks, daggers, dots and whitespace from the end', () => {
+    expect(trimTrailingNoise('Aqua*')).toBe('Aqua');
+    expect(trimTrailingNoise('Aqua \u2020 ')).toBe('Aqua');
+    expect(trimTrailingNoise('Aqua. .*')).toBe('Aqua');
+  });
+
+  it('leaves the same characters alone anywhere but the end', () => {
+    expect(trimTrailingNoise('*Aqua')).toBe('*Aqua');
+    expect(trimTrailingNoise('C12.5 Alkyl')).toBe('C12.5 Alkyl');
+  });
+
+  it('reduces a string of nothing else to nothing', () => {
+    expect(trimTrailingNoise(' . * ')).toBe('');
+    expect(trimTrailingNoise('')).toBe('');
+  });
+});
+
+describe('stripTrailingPercent', () => {
+  it.each([
+    ['Niacinamide 10%', 'Niacinamide'],
+    ['Niacinamide 10 %', 'Niacinamide'],
+    ['Zinc PCA (1%)', 'Zinc PCA'],
+    ['Aqua ( 95.5 % )', 'Aqua'],
+    ['Parfum 0,5%', 'Parfum'],
+  ])('drops the concentration from %j', (printed, name) => {
+    expect(stripTrailingPercent(printed)).toBe(name);
+  });
+
+  it.each(['Glycerin', 'Sodium Hydroxide 10', '50% Aqua', 'Aqua (Water)', '%'])(
+    'leaves %j alone',
+    (printed) => {
+      expect(stripTrailingPercent(printed)).toBe(printed);
+    },
+  );
+
+  // A decimal point belongs to the number only when digits stand on both sides of it.
+  it('takes a fraction only when digits precede its separator', () => {
+    expect(stripTrailingPercent('12.5%')).toBe('');
+    expect(stripTrailingPercent('x.5%')).toBe('x.');
   });
 });

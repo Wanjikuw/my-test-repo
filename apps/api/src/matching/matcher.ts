@@ -9,8 +9,14 @@ import type {
   Suggestion,
   SunExposure,
 } from '@allergy-checker/shared';
-import { commonNameVariant, looseInciName, normaliseInciName } from './normalise';
+import {
+  commonNameVariant,
+  foldOcrDigitSlips,
+  looseInciName,
+  normaliseInciName,
+} from './normalise';
 import { distanceBudget, suggestFor } from './fuzzy';
+import { MAX_ALTERNATE_PARTS, MAX_NAME_CHARS } from './limits';
 
 /** One ingredient as the matcher needs it, independent of how it was loaded. */
 export interface IngredientRecord {
@@ -185,9 +191,14 @@ export function lookupAlternateNames(
 ): AlternateResolution | undefined {
   if (!rawName.includes('/') || COMPOUND_SLASH.test(rawName)) return undefined;
 
+  // The limit asks for one part more than is allowed, so a name over the cap is spotted
+  // without splitting all of it.
+  const parts = rawName.split('/', MAX_ALTERNATE_PARTS + 1);
+  if (parts.length > MAX_ALTERNATE_PARTS) return undefined;
+
   let found: IngredientRecord | undefined;
   const unresolved: string[] = [];
-  for (const part of rawName.split('/')) {
+  for (const part of parts) {
     const name = part.trim();
     if (!name) continue;
     const hit = lookup(index, name);
@@ -245,10 +256,33 @@ function conflictsFor(categories: RiskCategory[], rules: SensitivityRule[]): Ski
     .map((rule) => ({ riskCategory: rule.riskCategory, interactionNote: rule.interactionNote }));
 }
 
-function suggestionsFor(index: IngredientIndex, query: string): Suggestion[] {
+const MAX_SUGGESTIONS = 3;
+
+function nearbyFor(index: IngredientIndex, query: string): Suggestion[] {
   const budget = distanceBudget(query);
   if (budget === 0) return [];
   return suggestFor(query, candidatesWithin(index, query.length, budget), budget);
+}
+
+function suggestionsFor(index: IngredientIndex, query: string): Suggestion[] {
+  const found = nearbyFor(index, query);
+  const repaired = foldOcrDigitSlips(query);
+  if (repaired === query) return found;
+
+  // A repaired name that is exactly a known one is a suggestion, not a match: the repair is
+  // a guess about what the camera misread, so the user confirms it.
+  const exact = lookup(index, repaired);
+  const merged = new Map(found.map((s) => [s.candidate, s]));
+  const offer = (s: Suggestion) => {
+    const seen = merged.get(s.candidate);
+    if (!seen || s.distance < seen.distance) merged.set(s.candidate, s);
+  };
+  if (exact) offer({ candidate: exact.record.inciName, distance: 1 });
+  for (const s of nearbyFor(index, repaired)) offer(s);
+
+  return [...merged.values()]
+    .sort((x, y) => x.distance - y.distance || x.candidate.localeCompare(y.candidate))
+    .slice(0, MAX_SUGGESTIONS);
 }
 
 export interface MatchOptions {
@@ -317,18 +351,27 @@ export function analyseNames(
   const seenUnmatched = new Set<string>();
 
   const miss = (rawText: string, position: number) => {
-    const key = normaliseInciName(rawText);
+    // A name this long is not an ingredient. It is shown clipped, never looked up and given no
+    // suggestions, so a pasted paragraph costs no more than a short unrecognised name does.
+    const overlong = rawText.length > MAX_NAME_CHARS;
+    const shown = overlong ? `${rawText.slice(0, MAX_NAME_CHARS)}…` : rawText;
+    const key = normaliseInciName(shown);
     if (seenUnmatched.has(key)) return;
     seenUnmatched.add(key);
-    unmatched.push({ rawText });
+    unmatched.push({ rawText: shown });
     unrecognised.push({
-      rawText,
+      rawText: shown,
       position,
-      suggestions: options.suggestUnmatched ? suggestionsFor(index, key) : [],
+      suggestions: options.suggestUnmatched && !overlong ? suggestionsFor(index, key) : [],
     });
   };
 
   for (const [position, rawText] of names.entries()) {
+    if (rawText.length > MAX_NAME_CHARS) {
+      miss(rawText, position);
+      continue;
+    }
+
     const direct = lookup(index, rawText);
     const alternate = direct ? undefined : lookupAlternateNames(index, rawText);
     const resolved = direct ?? alternate?.resolution;

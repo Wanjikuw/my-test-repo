@@ -10,10 +10,13 @@ import { config as loadEnvFile } from 'dotenv';
 import { healthRoutes } from './routes/health';
 import { analyzeRoutes } from './routes/analyze';
 import { ingredientRoutes } from './routes/ingredients';
-import { assistRoutes } from './routes/assist';
+import { productRoutes } from './routes/product';
 import { loadContextLazily, type LoadContext } from './routes/support';
-import type { QwenConfig } from './assist/qwen';
 import { captureServerError, initObservability } from './observability';
+import { resolveAuth } from './auth/config';
+import { registerAuth } from './auth/guard';
+import { resolveUserLimit } from './auth/user-limit';
+import type { TokenVerifier } from './auth/verify';
 
 export interface RateLimitSettings {
   max: number;
@@ -26,10 +29,13 @@ export interface ServerOptions {
   rateLimit?: RateLimitSettings | false;
   /** Overrides the database-backed corpus, so the whole server can be exercised without one. */
   loadContext?: LoadContext;
-  /** Overrides the env-derived Qwen settings. `null` switches the model-assisted routes off. */
-  qwen?: QwenConfig | null;
-  /** Stands in for the network on the model-assisted routes, so tests never call Qwen. */
+  /** Stands in for the network on the barcode route, so tests never call Open Beauty Facts. */
   fetch?: typeof fetch;
+  /**
+   * Overrides the env-derived sign-in check. `false` leaves every route open, which is for
+   * tests; a function enforces sign-in with it, so a test can do so without a Supabase project.
+   */
+  auth?: TokenVerifier | false;
 }
 
 /**
@@ -89,8 +95,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   // The error body is the one thing a client always sees, so it never carries a stack or
   // a driver message. Anything the framework did not classify is assumed to be ours and
-  // is reported as a bare 500; the detail goes to the log and to Sentry, keyed by
-  // request id.
+  // is reported as a bare 500; the detail goes to the log, and to Sentry and the alert
+  // webhook when configured, keyed by request id.
   server.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
     const statusCode = error.statusCode ?? 500;
     request.log.error({ err: error, requestId: request.id }, 'request failed');
@@ -100,6 +106,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         requestId: request.id,
         method: request.method,
         url: request.url,
+        statusCode,
       });
       reply.status(statusCode).send({ error: 'Internal Server Error', requestId: request.id });
       return;
@@ -108,25 +115,30 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     reply.status(statusCode).send({ error: error.message, requestId: request.id });
   });
 
-  await server.register(cors, { origin: resolveCorsOrigin() });
+  // maxAge lets a browser reuse a preflight for ten minutes instead of the five seconds it
+  // assumes when the header is absent.
+  await server.register(cors, { origin: resolveCorsOrigin(), maxAge: 600 });
+
+  const verifier = options.auth === undefined ? resolveAuth() : options.auth || null;
+  registerAuth(server, verifier, options.rateLimit === false ? false : resolveUserLimit());
+  if (!verifier && process.env.NODE_ENV === 'production') {
+    server.log.warn('AUTH_REQUIRED=false: this API answers callers who have not signed in.');
+  }
 
   const routeOptions = options.loadContext ? { loadContext: options.loadContext } : {};
   await server.register(healthRoutes);
   await server.register(analyzeRoutes, routeOptions);
   await server.register(ingredientRoutes, routeOptions);
-  await server.register(assistRoutes, {
-    loadContext: options.loadContext,
-    qwen: options.qwen,
-    fetch: options.fetch,
-  });
+  await server.register(productRoutes, { fetch: options.fetch });
 
   return server;
 }
 
 async function main() {
   // Read before anything consults process.env. Deployed machines ship no .env file, so
-  // there this is a no-op and the platform's secrets are what is read.
-  loadEnvFile({ path: ['.env', '../../.env'] });
+  // there this is a no-op and the platform's secrets are what is read. Quiet because dotenv 17
+  // and later print a line on every call, even when there is no file to read.
+  loadEnvFile({ path: ['.env', '../../.env'], quiet: true });
   initObservability();
   const server = await buildServer();
   const port = Number(process.env.PORT ?? 3001);

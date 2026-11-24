@@ -63,10 +63,17 @@ const LIMITS = [
     body: 'Every flag names the provision behind it — the annex and the entry number — so the claim can be checked rather than trusted.',
   },
   {
-    heading: 'It will not ask you to sign up',
-    body: 'Skin type and declared allergies stay on your device. The analysis needs nothing that would have to be stored.',
+    heading: 'It will not keep your skin profile',
+    body: 'Skin type and declared allergies stay on your device, and are sent only with each check. An account is needed to check a label. It holds your name and email address, not your skin profile and not the labels you check.',
   },
 ];
+
+/**
+ * The two photographs need licensed frames, 2400 px or wider, in public/hero. Until they are
+ * there both bands are plain, which the design instructions allow, and the page makes no
+ * request for a file that does not exist.
+ */
+const PHOTOGRAPHS = false;
 
 export default function HomePage() {
   return (
@@ -74,13 +81,15 @@ export default function HomePage() {
       <section className="border-b border-line bg-surface">
         <div className="relative isolate flex min-h-[30rem] items-center overflow-hidden sm:min-h-[36rem]">
           {/* Held right of centre: the marble is empty on the left, which is where the type goes. */}
-          <Photograph
-            src="/hero/marble.jpg"
-            tone="surface"
-            saturate={0.55}
-            objectPosition="72% 45%"
-            priority
-          />
+          {PHOTOGRAPHS && (
+            <Photograph
+              src="/hero/marble.jpg"
+              tone="surface"
+              saturate={0.55}
+              objectPosition="72% 45%"
+              priority
+            />
+          )}
           <div className="relative mx-auto w-full max-w-5xl px-5 py-20 sm:py-24">
             <p className="text-xs font-medium tracking-[0.2em] text-muted uppercase">
               Regulation (EC) No 1223/2009
@@ -182,14 +191,16 @@ export default function HomePage() {
 
       <section className="relative isolate overflow-hidden">
         {/* Held low: the surf runs across the top of the frame and the products sit under it. */}
-        <Photograph src="/hero/shore.jpg" tone="shell" saturate={0.3} objectPosition="50% 68%" />
+        {PHOTOGRAPHS && (
+          <Photograph src="/hero/shore.jpg" tone="shell" saturate={0.3} objectPosition="50% 68%" />
+        )}
         <Reveal className="relative mx-auto max-w-5xl px-5 py-24 sm:py-32">
           <h2 className="max-w-2xl font-serif text-4xl leading-tight sm:text-5xl">
             Paste a list, or point the camera at the back of the bottle.
           </h2>
           <p className="mt-5 max-w-lg leading-relaxed text-muted">
-            By default a photograph is read on your device and nothing is uploaded. No account is
-            required.
+            By default a photograph is read on your device and nothing is uploaded. Checking a label
+            needs an account.
           </p>
           <Link
             href="/check"

@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/client';
 import { ingredients, ingredientRiskTags, skinTypeSensitivity } from '../db/schema';
 import {
   buildIngredientIndex,
@@ -83,6 +82,10 @@ let cached: MatchingContext | null = null;
 let inflight: Promise<MatchingContext> | null = null;
 
 async function refresh(): Promise<MatchingContext> {
+  // Imported here rather than at the top: db/client throws without DATABASE_URL, which would
+  // make this whole module unimportable, and with it every test of collateRecords, on any
+  // machine that has no database configured, CI included.
+  const { db } = await import('../db/client');
   const rows = await db
     .select()
     .from(ingredients)

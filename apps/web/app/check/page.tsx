@@ -1,17 +1,22 @@
 'use client';
 
-import type { AnalyzeResponse, Capabilities } from '@allergy-checker/shared';
-import { useEffect, useState } from 'react';
-import { analyze, ApiError, getCapabilities, NO_CAPABILITIES } from '../../lib/api';
+import type { AnalyzeResponse } from '@allergy-checker/shared';
+import { issueNotes, SENSITIVITY_ISSUES } from '@allergy-checker/shared';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { analyze, ApiError } from '../../lib/api';
 import { annotate } from '../../lib/annotate';
-import { addIngredient, replaceName } from '../../lib/label';
+import { addIngredient } from '../../lib/label';
+import { reportLink } from '../../lib/report';
+import { useHistory } from '../../lib/history';
+import { HistoryList } from '../../components/history-list';
 import { useProfile } from '../../lib/profile';
 import { ProfileControls } from '../../components/profile-controls';
 import { Verdict } from '../../components/verdict';
 import { IngredientRow } from '../../components/ingredient-row';
 import { LabelCapture } from '../../components/label-capture';
+import { BarcodeLookup } from '../../components/barcode-lookup';
 import { IngredientSearch } from '../../components/ingredient-search';
-import { ModelNotes } from '../../components/model-notes';
 
 function listed(names: string[]): string {
   if (names.length <= 1) return names.join('');
@@ -19,20 +24,29 @@ function listed(names: string[]): string {
 }
 
 export default function CheckPage() {
-  const { skinType, sunExposure, declaredAllergies } = useProfile();
+  const { skinType, sensitivityIssues, sunExposure, declaredAllergies } = useProfile();
   const [label, setLabel] = useState('');
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The API turned the visitor away because their sign-in has lapsed. Said apart from other
+  // failures, because the remedy is different, and offered as a link rather than a redirect
+  // so what they pasted is still on the page when they come back to it.
+  const [signedOut, setSignedOut] = useState(false);
   const [pending, setPending] = useState(false);
   // The name of a pick already on the label, so refusing it is visible rather than silent.
   const [duplicate, setDuplicate] = useState<string | null>(null);
-  const [capabilities, setCapabilities] = useState<Capabilities>(NO_CAPABILITIES);
+  // Set once a check has been waiting long enough that the reason is worth giving.
+  const [slow, setSlow] = useState(false);
+  const resultRef = useRef<HTMLElement>(null);
+  const record = useHistory((s) => s.record);
 
+  // The result lands below a long form, which on a phone is off screen.
   useEffect(() => {
-    const controller = new AbortController();
-    getCapabilities(controller.signal).then(setCapabilities, () => undefined);
-    return () => controller.abort();
-  }, []);
+    const section = resultRef.current;
+    if (!result || !section) return;
+    section.scrollIntoView({ block: 'start' });
+    section.focus({ preventScroll: true });
+  }, [result]);
 
   function addPicked(inciName: string) {
     const outcome = addIngredient(label, inciName);
@@ -42,29 +56,42 @@ export default function CheckPage() {
 
   async function check(text: string) {
     setPending(true);
+    setSlow(false);
     setError(null);
+    setSignedOut(false);
     try {
-      setResult(await analyze({ label: text, skinType, sunExposure, declaredAllergies }));
+      const analysed = await analyze(
+        { label: text, skinType, sunExposure, declaredAllergies },
+        { onSlow: () => setSlow(true) },
+      );
+      setResult(analysed);
+      record({
+        at: new Date().toISOString(),
+        label: text,
+        tier: analysed.tier,
+        identified: analysed.coverage.identified,
+        total: analysed.coverage.total,
+      });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Something went wrong.');
+      setSignedOut(cause instanceof ApiError && cause.status === 401);
       setResult(null);
     } finally {
       setPending(false);
+      setSlow(false);
     }
-  }
-
-  function substitute(printed: string, inciName: string) {
-    const outcome = replaceName(label, printed, inciName);
-    if (!outcome.replaced) {
-      setError(`${printed} is no longer on the label as printed, so nothing was substituted.`);
-      return;
-    }
-    setLabel(outcome.label);
-    void check(outcome.label);
   }
 
   const names = result ? annotate(result) : [];
   const unresolved = result?.profile.unresolvedAllergies ?? [];
+  const notes = result ? issueNotes(result.matched, sensitivityIssues) : [];
+  const report = result
+    ? reportLink(
+        process.env.NEXT_PUBLIC_REPORT_EMAIL,
+        result,
+        names.map((n) => n.printed),
+      )
+    : null;
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10 sm:py-16">
@@ -102,7 +129,15 @@ export default function CheckPage() {
             className="label-quote mt-3 w-full rounded-md border border-line bg-surface p-4 text-sm outline-none focus:border-ink"
           />
           <div className="mt-3">
-            <LabelCapture onText={setLabel} capabilities={capabilities} />
+            <LabelCapture onText={setLabel} />
+          </div>
+          <div className="mt-4">
+            <BarcodeLookup
+              onText={(text) => {
+                setLabel(text);
+                setDuplicate(null);
+              }}
+            />
           </div>
         </div>
 
@@ -120,17 +155,57 @@ export default function CheckPage() {
         >
           {pending ? 'Checking…' : 'Check this label'}
         </button>
+
+        {pending && slow && (
+          <p role="status" className="text-sm leading-relaxed text-muted">
+            The service is waking up. It sleeps when it has not been used for a while, and the first
+            check can take up to a minute.
+          </p>
+        )}
       </form>
 
       {error && (
-        <p className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid">
-          {error}
-        </p>
+        <div className="mt-6 rounded-md border border-avoid/30 bg-avoid-wash p-4 text-sm text-avoid">
+          <p role="alert">{error}</p>
+          {signedOut && (
+            <p className="mt-2">
+              <Link href="/login?next=%2Fcheck" className="underline underline-offset-4">
+                Sign in again
+              </Link>
+            </p>
+          )}
+        </div>
       )}
 
+      <HistoryList onPick={setLabel} />
+
       {result && (
-        <section className="mt-12">
-          <Verdict result={result} />
+        <section ref={resultRef} tabIndex={-1} aria-label="Result" className="mt-12 outline-none">
+          <Verdict
+            result={result}
+            flagged={names.filter((n) => n.annotation === 'flagged').map((n) => n.printed)}
+          />
+
+          {notes.length > 0 && (
+            <section
+              aria-label="What this label means for your skin"
+              className="mt-4 rounded-md border border-line bg-surface p-4 text-sm leading-relaxed"
+            >
+              <h2 className="font-medium">What this label means for your skin</h2>
+              <ul className="mt-2 space-y-2">
+                {notes.map((note) => (
+                  <li key={note.issue}>
+                    <span className="font-medium">{SENSITIVITY_ISSUES[note.issue].label}:</span>{' '}
+                    <span className="text-muted">
+                      {listed(note.ingredients)} on this label{' '}
+                      {note.ingredients.length === 1 ? 'is' : 'are'} the kind of ingredient that can
+                      set this off.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {unresolved.length > 0 && (
             <p className="mt-4 rounded-md border border-line bg-unread-wash p-4 text-sm leading-relaxed text-unread">
@@ -151,12 +226,13 @@ export default function CheckPage() {
             ))}
           </ul>
 
-          {capabilities.modelNotes && result.unmatched.length > 0 && (
-            <ModelNotes
-              unmatched={result.unmatched}
-              model={capabilities.modelNotes.model}
-              onSubstitute={substitute}
-            />
+          {report && (
+            <p className="mt-6 text-sm text-muted">
+              Does this look wrong?{' '}
+              <a href={report} className="underline underline-offset-4 hover:text-ink">
+                Report a problem
+              </a>
+            </p>
           )}
         </section>
       )}

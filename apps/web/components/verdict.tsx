@@ -8,14 +8,25 @@ const TIER_STYLE: Record<AnalyzeResponse['tier'], string> = {
   Safe: 'bg-safe-wash text-safe',
 };
 
+const MAX_NAMED = 3;
+
 /**
  * The verdict and how much of the label it is based on, side by side and the same size.
  *
  * Coverage is not a footnote here. The median real label carries ten names the corpus
  * cannot identify, so a tier shown on its own would overstate what was actually checked.
  */
-export function Verdict({ result }: { result: AnalyzeResponse }) {
+export function Verdict({
+  result,
+  flagged = [],
+}: {
+  result: AnalyzeResponse;
+  /** Printed names that triggered a rule for this profile, in label order. */
+  flagged?: string[];
+}) {
   const { coverage } = result;
+  const shown = flagged.slice(0, MAX_NAMED);
+  const more = flagged.length - shown.length;
   const unread = coverage.total - coverage.identified;
 
   return (
@@ -24,6 +35,12 @@ export function Verdict({ result }: { result: AnalyzeResponse }) {
         <p className="text-xs font-medium tracking-widest uppercase opacity-70">Verdict</p>
         <p className="mt-2 font-serif text-4xl leading-none">{TIER_LABEL[result.tier]}</p>
         <p className="mt-3 text-sm leading-relaxed opacity-90">{TIER_NOTE[result.tier]}</p>
+        {shown.length > 0 && (
+          <p className="mt-3 text-sm leading-relaxed font-medium">
+            Because of {shown.join(', ')}
+            {more > 0 ? ` and ${more} more` : ''}.
+          </p>
+        )}
       </div>
 
       <div className="bg-surface p-6">

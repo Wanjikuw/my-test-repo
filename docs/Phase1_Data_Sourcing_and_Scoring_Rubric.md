@@ -355,6 +355,16 @@ Butter` printed. Widening it errs towards a false alarm, never a missed allergen
   model note's proposed INCI name reaches the verdict only if the user substitutes it and
   the label is checked again against the cited data.
 
+**Amended 12 Oct 2026 — matching only; Section 4.2 and `score()` are unchanged.**
+
+- A printed name longer than 200 characters is not looked up. It is reported as one
+  unmatched name, clipped for display and given no suggestions. Real INCI names are far
+  shorter: the longest name or alias in the curated data is 85 characters. The verdict
+  therefore cannot read as clean because a pasted paragraph was dropped; it reads
+  `UnverifiedCaution`, as for any unrecognised name.
+- A slash-separated entry is expanded only up to eight parts. A longer run is one
+  unrecognised name, not one entry per part.
+
 ### 4.2 Result tiers and precedence
 
 Four tiers, severity ordered:

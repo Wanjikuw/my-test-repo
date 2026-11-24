@@ -1,52 +1,46 @@
-# Cosmetic Ingredient Allergy Checker — Phase 0 Scaffold
+# Angalia — Cosmetic Ingredient Allergy Checker
 
-This is the Phase 0 deliverable: an empty-but-running monorepo. It proves the wiring works
-before any real feature code is written. What's here:
+Angalia reads a cosmetic ingredient list and checks it against EU Regulation (EC) No 1223/2009
+and the person's skin profile. Status and open work are in [projectplan.md](projectplan.md).
 
-- `apps/web` — Next.js 15 shell (placeholder homepage)
-- `apps/api` — Fastify API with one working route: `GET /health`
-- `packages/shared` — Zod schemas for the scoring/matching contract (already encodes the
-  finalized rule table from `Phase1_Data_Sourcing_and_Scoring_Rubric.md`)
+- `apps/web` — Next.js 15 app (Vercel): check page, sign-in, profile, on-device photo reading
+- `apps/api` — Fastify API (Render): analysis, ingredient search, barcode lookup
+- `packages/shared` — Zod schemas and the scoring contract shared by both
 
-## What I could not do for you
+## How it fits together
 
-I don't have your credentials or network access to actually provision or deploy anything.
-Everything below is on you — follow it in order.
+```mermaid
+flowchart LR
+  B[Browser] -->|pages, OCR engine| V[Vercel: apps/web]
+  B -->|sign-in, profile with RLS| S[(Supabase: auth + Postgres)]
+  B -->|Bearer token: analyze, search, barcode| A[Render: apps/api]
+  A -->|verifies token with public keys| S
+  A -->|reference data, read only| S
+  A -->|barcode| O[Open Beauty Facts]
+```
 
-**Nothing in this repo has been executed.** The machine it was assembled on had no Node
-runtime, and once one was installed its npm traffic was routed through an authenticated
-internal mirror that returned `403` for `next@15.0.0`, with public npm unreachable. So
-`pnpm install` has never completed here, and lint/typecheck/test/build have never run.
+Photographs never leave the device: the text is read in the browser, and only the text is sent
+to the API. The API stores nothing about a request.
 
-Every manifest, tsconfig, and config file was corrected by inspection and is internally
-consistent, but **treat your first `pnpm install` as the real test**, not a formality.
-The things most likely to need a nudge are version resolutions that only a solver can
-settle: Tailwind v4 with Next 15, `typescript-eslint` v8 with ESLint 9, and the
-React 18 / Next 15 peer range. Expect to adjust a version or two rather than assuming
-it is all correct first time.
+## Data and attribution
 
-## Deliberately not in this scaffold
+- Regulation (EC) No 1223/2009 and Commission Regulation (EU) 2023/1545, reused under the
+  EUR-Lex terms.
+- EU Glossary of Common Ingredient Names (Decision 96/335/EC) for names and synonyms.
+- Contains information from Open Beauty Facts, made available under the Open Database
+  License (ODbL) 1.0, used for barcode lookup and the coverage measurements.
+- OCR by tesseract.js with English language data from `@tesseract.js-data/eng`, served by
+  Angalia itself.
 
-These are known gaps, not oversights. Each needs real code or a real credential, so they
-belong to the phase that first uses them:
+No `LICENSE` file has been chosen yet.
 
-- **`@fastify/helmet` and `@fastify/rate-limit`** — the API has no auth and no user-facing
-  routes yet. Add both in the same PR that adds the first non-`/health` route.
-- **Supabase JWT verification** — `apps/api` connects via `DATABASE_URL` as the table
-  owner, which **bypasses RLS entirely**. The policies in `drizzle/manual/` currently only
-  protect direct browser-to-Supabase access. Before the API serves any user data, it must
-  verify the Supabase JWT and assume the `authenticated` role per request, or the RLS
-  design is decorative.
-- **Playwright** — removed from `apps/web` devDependencies. It was installed with no
-  config and no tests, and its postinstall downloads browser binaries on every CI install.
-  Re-add it together with the first E2E test.
-- **`eslint-config-next`** — not added. It is eslintrc-format and needs `FlatCompat` plus a
-  large plugin tree to work with this flat config; the shared root config already lints
-  `.tsx`. Revisit if you want `next/core-web-vitals` rules specifically.
-- **Scoring and matching engines, indexes for INCI fuzzy matching, and the
-  `skin_profiles`/`history`/`feedback` tables** — Phase 1+ feature work.
+## Setup
 
-## Manual setup checklist (Phase 0)
+The checklist below is how to stand the project up from nothing. The commands are verified by
+CI (`pnpm verify`: format, lint, typecheck, test, build). Dataset provenance and measurements
+are archived in [docs/history/projectplan-2026-09.md](docs/history/projectplan-2026-09.md).
+
+## Manual setup checklist
 
 ### 1. Local install
 
@@ -117,7 +111,8 @@ any lockfile change as a deliberate reviewable edit rather than install noise.
 
 #### 1e. Verify the install locally
 
-Run the same sequence CI runs. All five must pass before you push:
+Run the same sequence CI runs. All five must pass before you push (`pnpm verify` runs them
+in one go):
 
 ```bash
 pnpm format:check
@@ -147,27 +142,82 @@ pnpm --filter @allergy-checker/shared build # compile shared types only
 
 1. Create a project at supabase.com.
 2. Copy `.env.example` to `.env` at the repo root, then fill it in.
-   - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are **server-only** — the API reads these.
+   - `SUPABASE_URL` is read by the API, which uses it to check sign-in tokens. Nothing reads
+     `SUPABASE_SERVICE_ROLE_KEY`, so do not set it anywhere.
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` are the browser-visible
      pair. Next.js only inlines `NEXT_PUBLIC_*` into the client bundle, so the un-prefixed
      names are invisible to browser code. Never give the service role key a
      `NEXT_PUBLIC_` prefix — that publishes an RLS-bypassing credential to every visitor.
+     Next itself looks for an env file in `apps/web` only, so `apps/web/next.config.mjs` also
+     reads the `NEXT_PUBLIC_` names from this root file. Nothing else in it reaches the web
+     app, and `turbo.json` counts the file as an input to the web build, so `pnpm build` is
+     not answered from a build made before you edited it. Restart `pnpm dev` after editing
+     them: until the web app has both, the sign-in and sign-up pages say sign-in is not set
+     up, and still accept what is typed.
 3. Copy the Postgres connection string into `DATABASE_URL`.
 4. **Do this before writing a single table:** in the Supabase SQL editor, confirm Row Level
    Security is enabled by default on new tables in your project settings. Every table created
    from Phase 1 onward must have RLS policies — this is a non-negotiable from the original
    stack requirements, not optional hardening.
 
-### 3. Qwen (optional — remote OCR and model notes)
+### 2a. Accounts and sign-in
 
-Upstash Redis was dropped: the only planned consumer was an OCR job queue, and Qwen OCR is a
-single synchronous call, so there is no background work to queue.
+The web app signs people in with Supabase Auth, by email and password or with Google. The
+tool (`/check`) needs a signed-in visitor; the landing page, About and Privacy do not. The
+API refuses any request without a valid token except `/health`, and a route added later is
+closed until it is marked public. Set this up once per Supabase project:
 
-1. Create an Alibaba Cloud Model Studio API key in the Singapore region (new accounts get a
-   free quota), or use OpenRouter's free Qwen models by also setting `QWEN_BASE_URL` and
-   the two model names — see `.env.example`.
-2. Put it in `QWEN_API_KEY` for the **API only**. Without it the app works fully; the camera
-   reads on-device and the model notes are simply not offered.
+1. **Authentication > URL Configuration.** Set **Site URL** to the production domain. Under
+   **Redirect URLs** add `https://<production-domain>/**`, for previews
+   `https://*-<team>.vercel.app/**`, and `http://localhost:3000/**` while developing. Without
+   the entry, Google and emailed links land on the Site URL instead of `/auth/callback`.
+2. **Authentication > Providers > Google.** In Google Cloud Console create an OAuth client ID
+   of type _Web application_. Add the production domain and `http://localhost:3000` as
+   authorised JavaScript origins, and the callback URL shown on Supabase's Google page as the
+   authorised redirect URI. Paste the client ID and secret into Supabase and enable the
+   provider. Only the `openid`, email and profile scopes are needed.
+3. **Email.** Supabase's built-in mailer delivers only to addresses on your Supabase
+   organisation's team, at two messages an hour. People who sign up with a password need a
+   custom SMTP provider (Authentication > Emails > SMTP Settings). Until one is set, Google
+   sign-in works for everyone. Switching "Confirm email" off instead lets anyone create an
+   account under an address they do not own.
+4. **Email templates** (Authentication > Email Templates). Point each link at this site, so
+   it works when opened on another device or in a mail app's own browser. The defaults work
+   only in the browser that asked.
+   - **Confirm signup:** `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+   - **Reset password:** `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
+
+   A reset link always ends at `/reset-password`, whatever else the address says. A link that
+   has run out sends the person to `/forgot-password` to ask for another.
+
+5. **API.** On Render set `SUPABASE_URL` to the project URL. If Project Settings > JWT Keys
+   still shows the legacy secret, also set `SUPABASE_JWT_SECRET`, or migrate the project to
+   signing keys, which needs no secret. In production the API will not start without
+   `SUPABASE_URL`; `AUTH_REQUIRED=false` switches enforcement off, and is logged at boot.
+6. **Keep the project awake.** A Supabase Free project is paused after a week without
+   activity, and its address stops resolving. Sign-in lives in the same project, so a paused
+   project locks everyone out of the tool, not just the reference data. Restore it from the
+   dashboard (Restore project), then either move to a paid plan or send a request to it at
+   least every few days. `.github/workflows/keep-awake.yml` does that every ten minutes, and
+   also wakes the Render API, which sleeps after 15 idle minutes. Add repository secrets
+   `SUPABASE_URL` and `SUPABASE_ANON_KEY` (Settings > Secrets and variables > Actions; the
+   publishable key is enough) or the Supabase half only logs a warning.
+7. **Create the profile table.** Run `apps/api/drizzle/manual/0002_user_profiles.sql` once in
+   the Supabase SQL editor. It creates `public.user_profiles` (one row per user, row-level
+   security so a person can only touch their own, `updated_at` set by the database) and is safe
+   to run again. Without it the check page still works; the "Save to my account" button
+   reports that the account could not be reached. A row exists only after the person chooses to
+   save, and it is deleted with the account. After running it, confirm in Table Editor that RLS
+   shows as enabled.
+8. **Allow account deletion.** Run `apps/api/drizzle/manual/0003_delete_account.sql` once in
+   the SQL editor. It adds `public.delete_my_account()`, which a signed-in person calls to delete
+   only their own account (and, by cascade, their profile). Without it the "Delete my account"
+   button reports that deletion is not available yet and deletes nothing.
+
+### 3. Model providers (none)
+
+No third-party AI service is used. Photographs are read on the device, and there is nothing to
+configure here. Upstash Redis was dropped for the same reason: there is no background work.
 
 ### 4. Sentry
 
@@ -181,6 +231,10 @@ single synchronous call, so there is no background work to queue.
 3. Optional: `SENTRY_AUTH_TOKEN` (Settings > Auth Tokens) uploads source maps on
    `next build` so production stack traces show real code instead of minified output.
    Missing it just skips the upload rather than failing the build.
+4. No Sentry account? Set `ALERT_WEBHOOK_URL` on the API to a Slack or Discord incoming
+   webhook instead. Each 5xx posts its route, error and request id (at most once a
+   minute), and the full stack stays in the service log under that id. Browser errors are
+   not covered — only Sentry on the web app catches those.
 
 ### 5. GitHub repo
 
@@ -212,10 +266,12 @@ times actually become a problem. Don't spend Phase 0 time on it now.
    the repo root, because `@allergy-checker/shared` must be compiled to `dist/` before
    `next build` can resolve it — and `engines` in `apps/web/package.json` selects Node 22.
 3. Add `NEXT_PUBLIC_API_URL` (the Render URL) for Production and Preview. A production build
-   refuses to run without it. Because Next.js inlines `NEXT_PUBLIC_*` at build time,
-   changing this value later requires a **redeploy**, not just an env var edit. Do **not**
-   add `SUPABASE_SERVICE_ROLE_KEY` or `QWEN_API_KEY` here — neither belongs in a browser
-   bundle.
+   refuses to run without it. Add `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the project URL and its public key) the same way: nobody
+   can sign in without them, and a production build refuses to run without them too. Because
+   Next.js inlines `NEXT_PUBLIC_*` at build time, changing any of these later requires a
+   **redeploy**, not just an env var edit. Do **not** add `SUPABASE_SERVICE_ROLE_KEY`
+   here — it does not belong in a browser bundle.
 4. Deploy, then add the production domain to the API's `CORS_ORIGIN`.
 
 ### 7. Render (API deployment)
@@ -225,20 +281,25 @@ the dashboard equivalents are given in case you'd rather click through it.
 
 1. In the Render dashboard choose **New > Blueprint** and pick this repo. Render reads
    `render.yaml` and proposes one web service on the Free plan in Frankfurt.
-2. If you create the service by hand instead, the settings that matter are: **Language**
-   `Docker`, **Root Directory** left _blank_, **Dockerfile Path** `apps/api/Dockerfile`,
-   **Docker Build Context Directory** `.`, and **Health Check Path** `/health`. The root
-   directory must stay empty — the Dockerfile needs the whole monorepo as its build
-   context to resolve the pnpm workspace, and Render makes nothing outside the root
-   directory available at build time.
+2. If you create the service by hand instead, set **Language** to `Docker` first. If the
+   form is asking for a **Start Command**, the language is still Node: a Docker service
+   has no required start command, and its optional **Docker Command** should stay blank
+   so the Dockerfile's `CMD` runs. Then: **Root Directory** left _blank_, **Dockerfile
+   Path** `apps/api/Dockerfile`, **Docker Build Context Directory** `.`, and **Health Check
+   Path** `/health`. The root directory must stay empty — the Dockerfile needs the whole
+   monorepo as its build context to resolve the pnpm workspace, and Render makes nothing
+   outside the root directory available at build time.
 3. Set the environment variables Render prompts for (they are declared `sync: false` in
-   `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`,
-   `CORS_ORIGIN=https://<vercel-domain>`, and optionally `QWEN_API_KEY` and `SENTRY_DSN`.
-   `CORS_ORIGIN` is not optional: in production the API refuses to start without it rather
-   than reflect any origin. `NODE_ENV`, `TRUST_PROXY` and `SENTRY_ENVIRONMENT` come from
-   `render.yaml`. Leave `PORT` unset — Render injects `10000` and the server binds it.
+   `render.yaml` precisely so they stay out of the repo): `DATABASE_URL`, `SUPABASE_URL`,
+   `CORS_ORIGIN=https://<vercel-domain>`, and optionally `SENTRY_DSN` and
+   `ALERT_WEBHOOK_URL`. `CORS_ORIGIN` and `SUPABASE_URL` are not optional: in production the
+   API refuses to start without them, rather than reflect any origin or answer someone who
+   has not signed in (see "Accounts and sign-in"). A Blueprint also sets `NODE_ENV`,
+   `TRUST_PROXY` and `SENTRY_ENVIRONMENT` from `render.yaml`, but a service created by
+   hand never reads that file: add `TRUST_PROXY=true` yourself, or the rate limiter counts
+   every visitor as one caller. (`NODE_ENV=production` is already set in the Docker
+   image.) Leave `PORT` unset — Render injects `10000` and the server binds it.
 4. Deploy. Confirm `https://<your-service>.onrender.com/health` returns `{"status":"ok",...}`
-   and `/capabilities` names the Qwen models if a key was set.
 
 Know what the Free plan costs you in behaviour, because none of it is a bug:
 
@@ -261,7 +322,6 @@ Know what the Free plan costs you in behaviour, because none of it is a bug:
 - [ ] Web app is live on a Vercel URL (placeholder page is fine)
 - [ ] API is live on a Render URL and `/health` returns 200
 - [ ] Supabase project exists, `DATABASE_URL` confirmed working
-- [ ] Qwen key set on Render, or knowingly left off
 - [ ] Sentry DSN captured (SDK wiring can follow once you're testing against it)
 
 Once every box above is checked, Phase 0 is genuinely done — not "code is written," but
