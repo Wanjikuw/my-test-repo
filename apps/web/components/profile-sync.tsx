@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { hasSessionCookie } from '../lib/auth/session-hint';
 import { useProfile } from '../lib/profile';
+import { DeleteAccount } from './delete-account';
 import { link, push, reconcile, unlink, type ProfileDb, type SyncStore } from '../lib/profile-sync';
 
 type Status = 'hidden' | 'checking' | 'off' | 'on' | 'busy' | 'error';
@@ -172,6 +173,8 @@ export function ProfileSync() {
           </button>
         </>
       )}
+
+      {(status === 'on' || status === 'off' || status === 'error') && <DeleteAccount />}
     </div>
   );
 }

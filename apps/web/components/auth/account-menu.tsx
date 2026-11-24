@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { displayName } from '../../lib/auth/display';
 import { hasSessionCookie } from '../../lib/auth/session-hint';
 import { clearSyncedProfile } from '../../lib/profile-storage';
+import { clearHistory } from '../../lib/history-storage';
 
 type State = { status: 'unknown' } | { status: 'out' } | { status: 'in'; name: string };
 
@@ -53,6 +54,7 @@ export function AccountMenu() {
       await getBrowserClient().auth.signOut({ scope: 'local' });
     } finally {
       clearSyncedProfile(window.localStorage);
+      clearHistory(window.localStorage);
       window.location.assign('/');
     }
   }
