@@ -1,0 +1,35 @@
+name: Keep awake
+
+# Render's free plan puts the API to sleep after 15 idle minutes, and Supabase's free plan
+# pauses a project after a week without activity. Both lock people out of sign-in, so this
+# sends a small request to each on a schedule. GitHub may delay a scheduled run by a few
+# minutes, which the 10-minute interval leaves room for.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: ${{ vars.API_URL || 'https://allergy-checker-api.onrender.com' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Wake the API
+        # A sleeping service needs up to a minute to answer, so allow for it.
+        run: curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 10 "$API_URL/health"
+
+      - name: Touch the Supabase project
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_URL and SUPABASE_ANON_KEY are not set as repository secrets, so Supabase is not being kept awake."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 30 --retry 2 --output /dev/null \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/ingredients?select=id&limit=1"
