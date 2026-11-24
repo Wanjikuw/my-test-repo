@@ -18,7 +18,6 @@ async function server(fetchImpl: typeof fetch) {
     logger: false,
     rateLimit: false,
     auth: false,
-    qwen: null,
     fetch: fetchImpl,
   });
 }
@@ -118,7 +117,6 @@ describe('GET /product/:barcode', () => {
     const app = await buildServer({
       logger: false,
       rateLimit: false,
-      qwen: null,
       fetch: impl,
       auth: async () => {
         throw new Error('not a token');

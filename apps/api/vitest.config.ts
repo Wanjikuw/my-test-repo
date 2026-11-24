@@ -13,7 +13,6 @@ export default defineConfig({
     hookTimeout: 30_000,
     env: {
       DATABASE_URL: '',
-      QWEN_API_KEY: '',
       SENTRY_DSN: '',
       ALERT_WEBHOOK_URL: '',
       AUTH_REQUIRED: '',

@@ -10,13 +10,12 @@ import { config as loadEnvFile } from 'dotenv';
 import { healthRoutes } from './routes/health';
 import { analyzeRoutes } from './routes/analyze';
 import { ingredientRoutes } from './routes/ingredients';
-import { assistRoutes } from './routes/assist';
 import { productRoutes } from './routes/product';
 import { loadContextLazily, type LoadContext } from './routes/support';
-import type { QwenConfig } from './assist/qwen';
 import { captureServerError, initObservability } from './observability';
 import { resolveAuth } from './auth/config';
 import { registerAuth } from './auth/guard';
+import { resolveUserLimit } from './auth/user-limit';
 import type { TokenVerifier } from './auth/verify';
 
 export interface RateLimitSettings {
@@ -30,9 +29,7 @@ export interface ServerOptions {
   rateLimit?: RateLimitSettings | false;
   /** Overrides the database-backed corpus, so the whole server can be exercised without one. */
   loadContext?: LoadContext;
-  /** Overrides the env-derived Qwen settings. `null` switches the model-assisted routes off. */
-  qwen?: QwenConfig | null;
-  /** Stands in for the network on the model-assisted routes, so tests never call Qwen. */
+  /** Stands in for the network on the barcode route, so tests never call Open Beauty Facts. */
   fetch?: typeof fetch;
   /**
    * Overrides the env-derived sign-in check. `false` leaves every route open, which is for
@@ -123,7 +120,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   await server.register(cors, { origin: resolveCorsOrigin(), maxAge: 600 });
 
   const verifier = options.auth === undefined ? resolveAuth() : options.auth || null;
-  registerAuth(server, verifier);
+  registerAuth(server, verifier, options.rateLimit === false ? false : resolveUserLimit());
   if (!verifier && process.env.NODE_ENV === 'production') {
     server.log.warn('AUTH_REQUIRED=false: this API answers callers who have not signed in.');
   }
@@ -133,11 +130,6 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   await server.register(analyzeRoutes, routeOptions);
   await server.register(ingredientRoutes, routeOptions);
   await server.register(productRoutes, { fetch: options.fetch });
-  await server.register(assistRoutes, {
-    loadContext: options.loadContext,
-    qwen: options.qwen,
-    fetch: options.fetch,
-  });
 
   return server;
 }

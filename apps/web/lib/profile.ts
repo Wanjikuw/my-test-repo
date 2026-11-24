@@ -12,18 +12,12 @@ import { PROFILE_STORAGE_KEY } from './profile-storage';
  * not sign up first, and the analysis needs nothing we would have to store to work. A signed-in
  * person can choose to keep a copy in their account too (see `profile-sync.ts`); `syncedAt` and
  * `dirty` record where that stands and are never sent to the analysis.
- *
- * `ocrReader` rides along because it is the same kind of thing — a local preference — and
- * defaults to the on-device reader, so no photograph leaves the phone unless asked.
  */
-export type OcrReader = 'device' | 'remote';
-
 interface ProfileState {
   skinType: SkinType | null;
   sensitivityIssues: SensitivityIssue[];
   sunExposure: SunExposure | null;
   declaredAllergies: string[];
-  ocrReader: OcrReader;
   /** The account copy this device last agreed with. Null when it has no account copy. */
   syncedAt: string | null;
   /** Changed on this device since `syncedAt`. */
@@ -35,7 +29,6 @@ interface ProfileState {
   setSunExposure: (sunExposure: SunExposure | null) => void;
   addAllergy: (name: string) => void;
   removeAllergy: (name: string) => void;
-  setOcrReader: (reader: OcrReader) => void;
 }
 
 export const useProfile = create<ProfileState>()(
@@ -45,7 +38,6 @@ export const useProfile = create<ProfileState>()(
       sensitivityIssues: [],
       sunExposure: null,
       declaredAllergies: [],
-      ocrReader: 'device',
       syncedAt: null,
       dirty: false,
       setSkinType: (skinType) => set({ skinType, dirty: true }),
@@ -60,7 +52,6 @@ export const useProfile = create<ProfileState>()(
       applyQuizResult: ({ skinType, issues }) =>
         set({ skinType, sensitivityIssues: issues, dirty: true }),
       setSunExposure: (sunExposure) => set({ sunExposure, dirty: true }),
-      setOcrReader: (ocrReader) => set({ ocrReader }),
       addAllergy: (name) =>
         set((state) => {
           const trimmed = name.trim();
