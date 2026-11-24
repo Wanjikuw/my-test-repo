@@ -72,6 +72,3 @@ create policy "own profile can be deleted"
 -- Nobody signed out has any business here, whatever the policies say.
 revoke all on public.user_profiles from anon;
 grant select, insert, update, delete on public.user_profiles to authenticated;
-
-getent hosts github.com || echo "DNS broken"
-cat /etc/resolv.conf
