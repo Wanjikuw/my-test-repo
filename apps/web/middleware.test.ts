@@ -33,6 +33,8 @@ describe('the middleware matcher', () => {
     '/_next/image',
     '/monitoring',
     '/monitoring/',
+    '/ocr/worker.min.js',
+    '/ocr/lang/eng.traineddata.gz',
     '/favicon.ico',
     '/icon.svg',
     '/robots.txt',
@@ -62,6 +64,8 @@ describe('the middleware matcher', () => {
   it.each([
     '/monitoring-report',
     '/monitoring2',
+    '/ocr',
+    '/ocrs/page',
     '/robots.txt.html',
     '/robots.txtx',
     '/icon.svg/extra',
