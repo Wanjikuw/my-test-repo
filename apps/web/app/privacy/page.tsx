@@ -11,7 +11,7 @@ const SECTIONS = [
     heading: 'Your account',
     paragraphs: [
       'The check page needs an account. To make one you give a first name, a last name, an email address and a password, or you sign in with Google. Supabase provides the sign-in service. It stores your name and email address, and your password only as a one-way hash that nobody at Angalia can read. If you use Google, Google tells Supabase your name, your email address and the address of your profile picture, and Supabase stores those as well. Supabase also sends the emails that confirm an address or reset a password.',
-      'The Angalia service does not store any of this. With each request it receives a sign-in token, checks its signature and expiry against Supabase’s public keys, and does nothing else with it. An account is kept until it is deleted. The operator can delete one on request, together with everything held with it.',
+      'The Angalia service does not store any of this. With each request it receives a sign-in token, checks its signature and expiry against Supabase’s public keys, and does nothing else with it. An account is kept until it is deleted. You can delete yours at any time with “Delete my account” in the account panel on the check page, which removes your name, email address, sign-in details and any saved profile at once and cannot be undone. The operator can also delete one on request.',
     ],
   },
   {
@@ -30,10 +30,15 @@ const SECTIONS = [
     ],
   },
   {
+    heading: 'Recent checks',
+    paragraphs: [
+      'The check page remembers your last ten checked labels, with the verdict, so you can bring one back. They are kept in your browser on this device only and are never sent anywhere. “Clear” on the check page removes them, and so does signing out or deleting your account.',
+    ],
+  },
+  {
     heading: 'Photographs',
     paragraphs: [
-      'By default a photograph is read on your device and is not uploaded. The first time you use the reader, your browser downloads its text-recognition engine and language data from the jsDelivr content delivery network (cdn.jsdelivr.net), which sees your IP address and browser details as any host would.',
-      'The check page can also offer a second reader, which sends the photograph to Alibaba Cloud Model Studio (Qwen), operated by a company outside the European Union, to be read. Angalia does not store it. Optional notes on unrecognised names send those names to the same provider. Both are off unless the operator turns them on, and the check page shows the choice only when they are on.',
+      'A photograph is read on your device and is never uploaded. The first time you use the reader, your browser downloads its text-recognition engine and language data from Angalia itself, and keeps them for later visits. No other site is contacted to read a photograph.',
     ],
   },
   {

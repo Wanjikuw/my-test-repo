@@ -44,12 +44,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except the build's own files, the error-reporting tunnel, the metadata files and
-  // static assets, none of which are pages. A public image would otherwise be sent to the sign-in
+  // Everything except the build's own files, the error-reporting tunnel, the self-hosted OCR
+  // engine (public/ocr, files only), the metadata files and static assets, none of which are pages. A public image would otherwise be sent to the sign-in
   // page for a visitor who has none, and the landing page's photographs are public. Each exclusion
   // ends at a boundary, so a page that merely starts with one of these words is still protected.
   // Next needs this written out literally.
   matcher: [
-    '/((?!_next/static/|_next/image(?:/|$)|monitoring(?:/|$)|(?:robots\\.txt|sitemap\\.xml|manifest\\.webmanifest)$|.*\\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2?)$).*)',
+    '/((?!_next/static/|_next/image(?:/|$)|monitoring(?:/|$)|ocr/|(?:robots\\.txt|sitemap\\.xml|manifest\\.webmanifest)$|.*\\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2?)$).*)',
   ],
 };

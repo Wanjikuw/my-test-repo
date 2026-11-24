@@ -11,11 +11,12 @@
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_SENTRY_DSN",
+        "NEXT_PUBLIC_REPORT_EMAIL",
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ENVIRONMENT",
         "VERCEL_ENV"
       ],
-      "outputs": [".next/**", "dist/**", "!.next/cache/**"]
+      "outputs": [".next/**", "dist/**", "public/ocr/**", "!.next/cache/**"]
     },
     "dev": {
       "cache": false,

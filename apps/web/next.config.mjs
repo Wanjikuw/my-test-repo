@@ -6,6 +6,7 @@ import { parseEnv } from 'node:util';
 // withSentryConfig lives on the /config subpath, not the package root, which is the
 // runtime SDK entry.
 import { withSentryConfig } from '@sentry/nextjs/config';
+import { buildCsp } from './csp.mjs';
 
 // Next reads .env files from this folder only, but this repository keeps one at its root, shared
 // with the API, and says to put the web variables there. Without this the sign-in settings never
@@ -73,6 +74,17 @@ const SECURITY_HEADERS = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  {
+    // Report-only for now: the browser logs what the policy would block in its console and
+    // blocks nothing. Once a real session (sign-in, Google, camera, OCR, barcode) shows no
+    // violations, change this key to 'Content-Security-Policy' to enforce it.
+    key: 'Content-Security-Policy-Report-Only',
+    value: buildCsp({
+      apiUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      development: process.env.NODE_ENV !== 'production',
+    }),
+  },
 ];
 
 /** @type {import('next').NextConfig} */

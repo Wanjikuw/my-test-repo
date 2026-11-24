@@ -118,6 +118,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.118.0
         version: 2.118.0(@opentelemetry/api@1.9.1)
+      '@tesseract.js-data/eng':
+        specifier: 1.0.0
+        version: 1.0.0
       next:
         specifier: 15.5.28
         version: 15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1633,6 +1636,9 @@ packages:
 
   '@tailwindcss/postcss@4.3.5':
     resolution: {integrity: sha512-FAV37Tlx9wBiT/hkfgVD0Q6CWsP2oUX3lf28nrfjW8+ksILjnpuFulUqWDfNR4/ZiEHHDRBX8DUTzD1Rys687A==}
+
+  '@tesseract.js-data/eng@1.0.0':
+    resolution: {integrity: sha512-mbTumm6KQPUHyzTPQaF3ObXYnx0SqqfV2nabqFVQBwD6Kl7PhGSLSzOlfFTWy0P3BjghaSKA2W9GB19Jk+ZcTg==}
 
   '@turbo/darwin-64@2.11.10':
     resolution: {integrity: sha512-By4idRap5+nLnMuRzLB4qkOPRlvNdyY1ne4VJYDyUoUB11H94k7uif9mbe3JT8JSNXs1D68uMcBj6hJ/jMQRvA==}
@@ -4117,6 +4123,8 @@ snapshots:
       '@tailwindcss/oxide': 4.3.5
       postcss: 8.5.32
       tailwindcss: 4.3.5
+
+  '@tesseract.js-data/eng@1.0.0': {}
 
   '@turbo/darwin-64@2.11.10':
     optional: true

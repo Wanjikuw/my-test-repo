@@ -31,3 +31,6 @@ annexV.MD
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Copied from node_modules by apps/web/scripts/copy-ocr-assets.mjs on every dev and build.
+apps/web/public/ocr/
