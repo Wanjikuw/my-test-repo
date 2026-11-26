@@ -58,8 +58,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@fastify/cors':
-        specifier: ^11.4.0
-        version: 11.4.0
+        specifier: ^11.4.3
+        version: 11.4.3
       '@fastify/rate-limit':
         specifier: ^11.2.1
         version: 11.2.1
@@ -783,8 +783,8 @@ packages:
   '@fastify/ajv-compiler@4.0.6':
     resolution: {integrity: sha512-NtuzM0SfaMJbGlnjr9LWQUN5LzgSrbB8tf/wRZNas+4E1O/Nmzl53e7ruT61HDZyRCJGC6FxIogmNZO1c5ETBA==}
 
-  '@fastify/cors@11.4.0':
-    resolution: {integrity: sha512-+P4+RIRx5I3rkC1QttZ9gqSJ3AHrsM4PrZF6bpgbElt86n7gOBiHL3J0H3moVSyfc+vvvNto+Ay1LmG7ZQ37pA==}
+  '@fastify/cors@11.4.3':
+    resolution: {integrity: sha512-6NNFNR1i9t1oG1WlQftwc2ugElFm4cG75ylYyGNiKKiyxlVGueneup9MQ9Nd3eI4lT6kVOJaxV1Jqa727/E4jg==}
 
   '@fastify/error@4.2.0':
     resolution: {integrity: sha512-RSo3sVDXfHskiBZKBPRgnQTtIqpi/7zhJOEmAxCiBcM7d0uwdGdxLlsCaLzGs8v8NnxIRlfG0N51p5yFaOentQ==}
@@ -2160,9 +2160,6 @@ packages:
   fast-uri@4.2.3:
     resolution: {integrity: sha512-I1PXwP5eAhlNlcdpjt9CgB59op2ZvZfxw+BkqGFVIUOgNpCVTcTqp3HhTX7brxj5vsip+nSY4nTvff+eIA76hg==}
 
-  fastify-plugin@6.0.0:
-    resolution: {integrity: sha512-fZOty7z3O7vOliF6d8bHE3wiEh1KcNnKEQensSgTk9C1DvN6nRLS++XVd86v33Hw/8u9Un8A1zDrQ8ujcQDHEg==}
-
   fastify-plugin@6.0.1:
     resolution: {integrity: sha512-4wW4RxSmvPXLrh5mgQEiu43qU3bw44N2ss4FTkTkQIbprUhE+/s43QX0j/ttcztdWK7PEkHqVthdc5GdEGDvjA==}
 
@@ -3426,9 +3423,9 @@ snapshots:
       ajv-formats: 3.0.1(ajv@8.20.0)
       fast-uri: 4.2.3
 
-  '@fastify/cors@11.4.0':
+  '@fastify/cors@11.4.3':
     dependencies:
-      fastify-plugin: 6.0.0
+      fastify-plugin: 6.0.1
       toad-cache: 3.7.4
 
   '@fastify/error@4.2.0': {}
@@ -4636,8 +4633,6 @@ snapshots:
   fast-uri@3.1.9: {}
 
   fast-uri@4.2.3: {}
-
-  fastify-plugin@6.0.0: {}
 
   fastify-plugin@6.0.1: {}
 
